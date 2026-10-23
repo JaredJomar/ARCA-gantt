@@ -41,7 +41,7 @@
   <input type="password" id="token" placeholder="Pega tu token de GitHub (solo lectura)" autocomplete="off">
   <button id="load">Cargar Gantt</button>
   <button id="clear" class="secondary">Borrar token</button>
-  <span style="font-size:13px;">El token se guarda solo en esta sesión del navegador, nunca en un servidor.</span>
+  <span style="font-size:13px;">El token se guarda en este dispositivo, nunca en un servidor. Pulsa «Borrar token» para quitarlo.</span>
 </div>
 
 <div class="panel" id="controls" style="display:none;">
@@ -161,7 +161,7 @@ function render(tasks) {
 async function load() {
   const token = $("#token").value.trim();
   if (!token) { setStatus("Primero pega tu token de GitHub.", true); return; }
-  sessionStorage.setItem("arca_gantt_token", token);
+  localStorage.setItem("arca_gantt_token", token);
   setStatus("Cargando issues desde GitHub...");
   try {
     const issues = await fetchAllIssues(token);
@@ -177,9 +177,9 @@ async function load() {
 $("#load").addEventListener("click", load);
 $("#token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
 $("#clear").addEventListener("click", () => {
-  sessionStorage.removeItem("arca_gantt_token");
+  localStorage.removeItem("arca_gantt_token");
   $("#token").value = "";
-  setStatus("Token borrado de esta sesión.");
+  setStatus("Token borrado de este dispositivo.");
 });
 document.querySelectorAll(".viewbtn").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -190,7 +190,7 @@ document.querySelectorAll(".viewbtn").forEach(btn => {
   });
 });
 
-const saved = sessionStorage.getItem("arca_gantt_token");
+const saved = localStorage.getItem("arca_gantt_token");
 if (saved) { $("#token").value = saved; load(); }
 </script>
 </body>
