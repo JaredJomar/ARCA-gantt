@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCA — Gantt clásico</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f6f8fa; color: #24292f; }
+  header { background: #0d2136; color: #fff; padding: 16px 20px; }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; font-size: 13px; opacity: .85; }
+  .panel { background: #fff; border-bottom: 1px solid #d0d7de; padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .panel input[type="password"] { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; width: 340px; max-width: 90vw; font-size: 14px; }
+  button { padding: 8px 14px; border: 1px solid #1f6feb; background: #1f6feb; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.secondary { background: #fff; color: #24292f; border-color: #d0d7de; }
+  button.secondary.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
+  .legend { display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; }
+  .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  #status { padding: 10px 20px; font-size: 14px; }
+  #status.error { color: #b42318; }
+  .chart-wrap { overflow-x: auto; background: #fff; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; }
+  /* Frappe Gantt bar colors by state */
+  .gantt .bar-open .bar { fill: #9ec1e8; }
+  .gantt .bar-open .bar-progress { fill: #1f6feb; }
+  .gantt .bar-closed .bar { fill: #cdeeda; }
+  .gantt .bar-closed .bar-progress { fill: #2da44e; }
+  .gantt .bar-overdue .bar { fill: #f0b3ae; }
+  .gantt .bar-overdue .bar-progress { fill: #d1242f; }
+  .gantt .grid-header { fill: #f6f8fa; }
+  .details { font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ARCA — Gantt clásico</h1>
+  <p>Datos en vivo desde los issues de GitHub (repo JaredJomar/ARCA). Barras por fecha, flechas de dependencia y línea de hoy.</p>
+</header>
+
+<div class="panel">
+  <input type="password" id="token" placeholder="Pega tu token de GitHub (solo lectura)" autocomplete="off">
+  <button id="load">Cargar Gantt</button>
+  <button id="clear" class="secondary">Borrar token</button>
+  <span style="font-size:13px;">El token se guarda solo en esta sesión del navegador, nunca en un servidor.</span>
+</div>
+
+<div class="panel" id="controls" style="display:none;">
+  <strong style="font-size:14px;">Vista:</strong>
+  <button class="secondary viewbtn" data-mode="Day">Día</button>
+  <button class="secondary viewbtn active" data-mode="Week">Semana</button>
+  <button class="secondary viewbtn" data-mode="Month">Mes</button>
+  <span class="legend">
+    <span><span class="swatch" style="background:#1f6feb;"></span>Abierta</span>
+    <span><span class="swatch" style="background:#2da44e;"></span>Completada (issue cerrado)</span>
+    <span><span class="swatch" style="background:#d1242f;"></span>Atrasada (fecha pasada, issue abierto)</span>
+  </span>
+  <span id="meta" style="font-size:13px;"></span>
+</div>
+
+<div id="status">Escribe tu token y pulsa «Cargar Gantt».</div>
+<div class="chart-wrap" id="wrap" style="display:none;">
+  <svg id="gantt"></svg>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+<script>
+const REPO = "JaredJomar/ARCA";
+const $ = s => document.querySelector(s);
+let gantt = null;
+let currentMode = "Week";
+
+function setStatus(msg, isError) {
+  const el = $("#status");
+  el.textContent = msg;
+  el.className = isError ? "error" : "";
+}
+
+function parseDate(body, key) {
+  const m = body && body.match(new RegExp("^" + key + ":\\s*(\\d{4}-\\d{2}-\\d{2})", "m"));
+  return m ? m[1] : null;
+}
+
+function parseDeps(body) {
+  if (!body) return "";
+  const line = body.match(/Depende de:\*\*\s*([^\n]+)/) || body.match(/Depende de:\s*([^\n]+)/);
+  if (!line) return "";
+  const refs = line[1].match(/#(\d+)/g) || [];
+  return refs.map(r => r.slice(1)).join(",");
+}
+
+function parseProgress(body, state) {
+  if (state === "closed") return 100;
+  const m = body && body.match(/Progreso[^:]*:\s*(\d+)%/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function addDays(ymd, days) {
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function fetchAllIssues(token) {
+  let page = 1, all = [];
+  while (true) {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/issues?state=all&per_page=100&page=${page}`, {
+      headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json" }
+    });
+    if (res.status === 401) throw new Error("Token inválido o expirado (401). Verifica el token y vuelve a intentarlo.");
+    if (res.status === 404) throw new Error("El token no tiene acceso al repo " + REPO + " (404).");
+    if (!res.ok) throw new Error("GitHub devolvió el código " + res.status + ".");
+    const batch = await res.json();
+    all = all.concat(batch);
+    if (batch.length < 100) break;
+    page++;
+  }
+  return all.filter(i => !i.pull_request);
+}
+
+function buildTasks(issues) {
+  const today = new Date().toISOString().slice(0, 10);
+  const tasks = issues.map(i => {
+    const body = i.body || "";
+    let start = parseDate(body, "GanttStart");
+    let end = parseDate(body, "GanttDue");
+    if (!start) start = (i.created_at || today).slice(0, 10);
+    if (!end) end = addDays(start, 1);
+    if (end < start) end = start;
+    let cls = "bar-open";
+    if (i.state === "closed") cls = "bar-closed";
+    else if (end < today) cls = "bar-overdue";
+    return {
+      id: String(i.number),
+      name: i.title + " (#" + i.number + ")",
+      start: start,
+      end: end,
+      progress: parseProgress(body, i.state),
+      dependencies: parseDeps(body),
+      custom_class: cls
+    };
+  });
+  tasks.sort((a, b) => a.start.localeCompare(b.start) || (parseInt(a.id) - parseInt(b.id)));
+  return tasks;
+}
+
+function render(tasks) {
+  $("#wrap").style.display = "block";
+  $("#controls").style.display = "flex";
+  const svg = $("#gantt");
+  svg.innerHTML = "";
+  gantt = new Gantt("#gantt", tasks, {
+    view_mode: currentMode,
+    language: "es",
+    popup_trigger: "click",
+    on_click: task => { window.open("https://github.com/" + REPO + "/issues/" + task.id, "_blank"); }
+  });
+  const open = tasks.filter(t => t.custom_class !== "bar-closed").length;
+  $("#meta").textContent = tasks.length + " tareas · " + (tasks.length - open) + " completadas · " + open + " abiertas";
+}
+
+async function load() {
+  const token = $("#token").value.trim();
+  if (!token) { setStatus("Primero pega tu token de GitHub.", true); return; }
+  sessionStorage.setItem("arca_gantt_token", token);
+  setStatus("Cargando issues desde GitHub...");
+  try {
+    const issues = await fetchAllIssues(token);
+    const tasks = buildTasks(issues);
+    if (!tasks.length) { setStatus("No se encontraron issues en " + REPO + ".", true); return; }
+    render(tasks);
+    setStatus("Actualizado: " + new Date().toLocaleString("es-PR") + ". Pulsa una barra para abrir su issue en GitHub.");
+  } catch (e) {
+    setStatus(e.message, true);
+  }
+}
+
+$("#load").addEventListener("click", load);
+$("#token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
+$("#clear").addEventListener("click", () => {
+  sessionStorage.removeItem("arca_gantt_token");
+  $("#token").value = "";
+  setStatus("Token borrado de esta sesión.");
+});
+document.querySelectorAll(".viewbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".viewbtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentMode = btn.dataset.mode;
+    if (gantt) gantt.change_view_mode(currentMode);
+  });
+});
+
+const saved = sessionStorage.getItem("arca_gantt_token");
+if (saved) { $("#token").value = saved; load(); }
+</script>
+</body>
+</html>
