@@ -168,6 +168,7 @@ async function load() {
     const tasks = buildTasks(issues);
     if (!tasks.length) { setStatus("No se encontraron issues en " + REPO + ".", true); return; }
     render(tasks);
+    try { history.replaceState(null, "", "#t=" + encodeURIComponent(token)); } catch (e) {}
     setStatus("Actualizado: " + new Date().toLocaleString("es-PR") + ". Pulsa una barra para abrir su issue en GitHub.");
   } catch (e) {
     setStatus(e.message, true);
@@ -177,7 +178,8 @@ async function load() {
 $("#load").addEventListener("click", load);
 $("#token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
 $("#clear").addEventListener("click", () => {
-  localStorage.removeItem("arca_gantt_token");
+  try { localStorage.removeItem("arca_gantt_token"); } catch (e) {}
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
   $("#token").value = "";
   setStatus("Token borrado de este dispositivo.");
 });
@@ -190,8 +192,15 @@ document.querySelectorAll(".viewbtn").forEach(btn => {
   });
 });
 
-const saved = localStorage.getItem("arca_gantt_token");
-if (saved) { $("#token").value = saved; load(); }
+let initialToken = "";
+const hashMatch = location.hash.match(/#t=([^&]+)/);
+if (hashMatch) {
+  initialToken = decodeURIComponent(hashMatch[1]);
+  try { localStorage.setItem("arca_gantt_token", initialToken); } catch (e) {}
+} else {
+  try { initialToken = localStorage.getItem("arca_gantt_token") || ""; } catch (e) {}
+}
+if (initialToken) { $("#token").value = initialToken; load(); }
 </script>
 </body>
 </html>
