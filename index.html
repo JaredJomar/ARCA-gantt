@@ -3,15 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARCA — Gantt clásico</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<title>ARCA - Gantt clásico</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.css">
 <style>
   body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f6f8fa; color: #24292f; }
   header { background: #0d2136; color: #fff; padding: 16px 20px; }
   header h1 { margin: 0 0 4px; font-size: 20px; }
   header p { margin: 0; font-size: 13px; opacity: .85; }
   .panel { background: #fff; border-bottom: 1px solid #d0d7de; padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .panel input[type="password"] { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; width: 340px; max-width: 90vw; font-size: 14px; }
+  .panel input[type="password"], .panel input[type="text"], .panel select { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px; }
+  .panel input[type="password"] { width: 340px; max-width: 90vw; }
+  .panel input[type="text"] { width: 180px; }
+  .panel label { font-size: 14px; }
   button { padding: 8px 14px; border: 1px solid #1f6feb; background: #1f6feb; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
   button.secondary { background: #fff; color: #24292f; border-color: #d0d7de; }
   button.secondary.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
@@ -19,29 +22,45 @@
   .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
   #status { padding: 10px 20px; font-size: 14px; }
   #status.error { color: #b42318; }
-  .chart-wrap { overflow-x: auto; background: #fff; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; }
-  /* Frappe Gantt bar colors by state */
-  .gantt .bar-open .bar { fill: #9ec1e8; }
-  .gantt .bar-open .bar-progress { fill: #1f6feb; }
-  .gantt .bar-closed .bar { fill: #cdeeda; }
-  .gantt .bar-closed .bar-progress { fill: #2da44e; }
-  .gantt .bar-overdue .bar { fill: #f0b3ae; }
-  .gantt .bar-overdue .bar-progress { fill: #d1242f; }
-  .gantt .grid-header { fill: #f6f8fa; }
-  .details { font-size: 13px; }
+  #gantt_here { width: auto; height: 650px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  /* Colores de barras por estado (DHTMLX) */
+  .gantt_task_line.task-open { background-color: #1f6feb; border-color: #1f6feb; }
+  .gantt_task_line.task-open .gantt_task_progress { background-color: #0d4ea6; }
+  .gantt_task_line.task-closed { background-color: #2da44e; border-color: #2da44e; }
+  .gantt_task_line.task-closed .gantt_task_progress { background-color: #1d7a38; }
+  .gantt_task_line.task-overdue { background-color: #d1242f; border-color: #d1242f; }
+  .gantt_task_line.task-overdue .gantt_task_progress { background-color: #9e1b25; }
+  .gantt_task_line.task-critical { border: 2px solid #d1242f; }
+  .gantt_row.row-critical { font-weight: 600; }
+  .baseline-bar { position: absolute; height: 6px; background: #8a94a6; opacity: 0.55; border-radius: 3px; z-index: 0; }
+  .gantt_marker.today-marker { background-color: rgba(209,36,47,.12); }
+  .gantt_marker.today-marker .gantt_marker_content { color: #d1242f; font-size: 12px; }
+  #workload { margin: 0 20px 24px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 16px; }
+  #workload table { border-collapse: collapse; font-size: 14px; }
+  #workload th, #workload td { padding: 6px 14px 6px 0; text-align: left; border-bottom: 1px solid #eee; }
+  details.token-help { font-size: 13px; }
+  details.token-help summary { cursor: pointer; }
+  @media print {
+    header, .panel, #status, #workload { display: none !important; }
+    #gantt_here { margin: 0; border: none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>ARCA — Gantt clásico</h1>
-  <p>Datos en vivo desde los issues de GitHub (repo JaredJomar/ARCA). Barras por fecha, flechas de dependencia y línea de hoy.</p>
+  <h1>ARCA - Gantt clásico</h1>
+  <p>Datos en vivo desde los issues de GitHub (repo JaredJomar/ARCA). Arrastra barras para cambiar fechas, estira para cambiar duración, arrastra entre barras para crear dependencias. Todo se guarda en el issue.</p>
 </header>
 
 <div class="panel">
-  <input type="password" id="token" placeholder="Pega tu token de GitHub (solo lectura)" autocomplete="off">
+  <input type="password" id="token" placeholder="Pega tu token de GitHub" autocomplete="off">
   <button id="load">Cargar Gantt</button>
   <button id="clear" class="secondary">Borrar token</button>
-  <span style="font-size:13px;">El token se guarda en este dispositivo, nunca en un servidor. Pulsa «Borrar token» para quitarlo.</span>
+  <span style="font-size:13px;">El token se guarda en este dispositivo, nunca en un servidor. Para ver basta uno de lectura; para editar necesitas uno con escritura.</span>
+  <details class="token-help">
+    <summary>¿Cómo creo el token con escritura?</summary>
+    <div>En GitHub: Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token. Repos: JaredJomar/ARCA con Issues en lectura y escritura. Si también quieres guardar baselines, añade el repo JaredJomar/ARCA-gantt con Contents en lectura y escritura. Pégalo arriba y pulsa Cargar Gantt. Se puede revocar en un clic si se expone.</div>
+  </details>
 </div>
 
 <div class="panel" id="controls" style="display:none;">
@@ -49,59 +68,161 @@
   <button class="secondary viewbtn" data-mode="Day">Día</button>
   <button class="secondary viewbtn active" data-mode="Week">Semana</button>
   <button class="secondary viewbtn" data-mode="Month">Mes</button>
+  <label>Asignado:
+    <select id="fAssignee"><option value="all">Todos</option></select>
+  </label>
+  <label>Estado:
+    <select id="fStatus">
+      <option value="all">Todos</option>
+      <option value="open">Abierta</option>
+      <option value="closed">Cerrada</option>
+      <option value="overdue">Atrasada</option>
+    </select>
+  </label>
+  <input type="text" id="fSearch" placeholder="Buscar tarea o #número">
+  <label><input type="checkbox" id="groupPerson"> Agrupar por persona</label>
+  <label><input type="checkbox" id="editToggle" checked> Edición</label>
+  <label><input type="checkbox" id="autoMove"> Mover dependientes</label>
+  <button id="criticalBtn" class="secondary">Camino crítico</button>
+  <button id="saveBaselineBtn" class="secondary">Guardar baseline</button>
+  <label><input type="checkbox" id="showBaseline"> Mostrar baseline</label>
+  <button id="workloadBtn" class="secondary">Carga por persona</button>
   <span class="legend">
     <span><span class="swatch" style="background:#1f6feb;"></span>Abierta</span>
-    <span><span class="swatch" style="background:#2da44e;"></span>Completada (issue cerrado)</span>
-    <span><span class="swatch" style="background:#d1242f;"></span>Atrasada (fecha pasada, issue abierto)</span>
+    <span><span class="swatch" style="background:#2da44e;"></span>Cerrada</span>
+    <span><span class="swatch" style="background:#d1242f;"></span>Atrasada</span>
+    <span><span class="swatch" style="background:#fff;border:2px solid #d1242f;"></span>Camino crítico</span>
+    <span><span class="swatch" style="background:#8a94a6;"></span>Baseline</span>
   </span>
   <span id="meta" style="font-size:13px;"></span>
   <button id="exportBtn" class="secondary">Exportar HTML</button>
   <button id="shareBtn" class="secondary">Compartir enlace</button>
+  <button id="printBtn" class="secondary">Imprimir / PDF</button>
   <span id="shareMsg" style="font-size:13px;"></span>
 </div>
 
 <div id="status">Escribe tu token y pulsa «Cargar Gantt».</div>
-<div class="chart-wrap" id="wrap" style="display:none;">
-  <svg id="gantt"></svg>
+<div id="wrap" style="display:none;">
+  <div id="gantt_here"></div>
+  <div id="workload" style="display:none;">
+    <strong>Carga por persona</strong>
+    <p style="font-size:13px;">Una tarea con varios asignados cuenta para cada uno. Los días son la duración en días naturales de cada tarea abierta o cerrada.</p>
+    <table>
+      <thead><tr><th>Persona</th><th>Tareas</th><th>Abiertas</th><th>Atrasadas</th><th>Días</th></tr></thead>
+      <tbody id="workloadBody"></tbody>
+    </table>
+  </div>
+  <p style="font-size:13px; margin: 0 20px 24px;">Para quitar un enlace: haz clic en la flecha y pulsa Supr (se pide confirmación). Los enlaces nuevos se guardan como dependencia fin-a-inicio: el texto del issue solo guarda el par de issues, no el tipo.</p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.js"></script>
 <script>
 const REPO = "JaredJomar/ARCA";
+const GANTT_REPO = "JaredJomar/ARCA-gantt";
+const SHARED_URL = "https://jaredjomar.github.io/ARCA-gantt/shared.html";
 const $ = s => document.querySelector(s);
-let gantt = null;
-let currentMode = "Week";
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MESES_CORTO = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+// Estado
+let ganttReady = false;
 let currentTasks = [];
+let currentLinks = [];
+let currentBaseline = null;
+let baselineOn = false;
+let criticalOn = false;
+let criticalSet = new Set();
+let autoMove = false;
+let todayMarkerId = null;
+let selectedLinkId = null;
+let suppressLinkEvents = false;
+let justDragged = false;
+let filterAssignee = "all";
+let filterStatus = "all";
+let filterText = "";
 
 function setStatus(msg, isError) {
   const el = $("#status");
   el.textContent = msg;
   el.className = isError ? "error" : "";
 }
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function fmtDate(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function parseYMD(s) {
+  const p = s.split("-");
+  return new Date(+p[0], +p[1] - 1, +p[2]);
+}
+function addDaysDate(d, n) {
+  const out = new Date(d);
+  out.setDate(out.getDate() + n);
+  return out;
+}
+function dayNum(d) {
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+}
+function authHeaders() {
+  return { "Authorization": "Bearer " + $("#token").value.trim(), "Accept": "application/vnd.github+json", "Content-Type": "application/json" };
+}
 
-function parseDate(body, key) {
+// Parseo del cuerpo del issue (mismas reglas que el visor anterior)
+function parseDateLine(body, key) {
   const m = body && body.match(new RegExp("^" + key + ":\\s*(\\d{4}-\\d{2}-\\d{2})", "m"));
   return m ? m[1] : null;
 }
-
-function parseDeps(body) {
-  if (!body) return "";
+function parseDepsArr(body) {
+  if (!body) return [];
   const line = body.match(/Depende de:\*\*\s*([^\n]+)/) || body.match(/Depende de:\s*([^\n]+)/);
-  if (!line) return "";
-  const refs = line[1].match(/#(\d+)/g) || [];
-  return refs.map(r => r.slice(1)).join(",");
+  if (!line) return [];
+  const nums = line[1].match(/\d+/g) || [];
+  return [...new Set(nums.map(n => parseInt(n, 10)))];
 }
-
 function parseProgress(body, state) {
   if (state === "closed") return 100;
   const m = body && body.match(/Progreso[^:]*:\s*(\d+)%/);
   return m ? parseInt(m[1], 10) : 0;
 }
+function statusClsFor(state, inclEnd) {
+  if (state === "closed") return "closed";
+  const today = fmtDate(new Date());
+  return fmtDate(inclEnd) < today ? "overdue" : "open";
+}
 
-function addDays(ymd, days) {
-  const d = new Date(ymd + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+// Reescritura del cuerpo del issue (solo las líneas que cambia el visor)
+function rewriteDates(body, gs, gd) {
+  let out = body || "";
+  if (/^GanttStart:/m.test(out)) out = out.replace(/^GanttStart:.*$/m, "GanttStart: " + gs);
+  else out += "\nGanttStart: " + gs;
+  if (/^GanttDue:/m.test(out)) out = out.replace(/^GanttDue:.*$/m, "GanttDue: " + gd);
+  else out += "\nGanttDue: " + gd;
+  return out;
+}
+function rewriteProgress(body, pct) {
+  let out = body || "";
+  if (/Progreso[^:\n]*:\s*\d+%/.test(out)) out = out.replace(/Progreso[^:\n]*:\s*\d+%/, "Progreso: " + pct + "%");
+  else out += "\nProgreso: " + pct + "%";
+  return out;
+}
+function addDepToBody(body, src) {
+  const re = /^Depende de:.*$/m;
+  if (re.test(body)) {
+    return body.replace(re, line => {
+      if (new RegExp("#" + src + "(?!\\d)").test(line)) return line;
+      return line.replace(/\s*$/, ", #" + src);
+    });
+  }
+  return (body || "") + "\nDepende de: #" + src;
+}
+function removeDepFromBody(body, src) {
+  return (body || "").replace(/^Depende de:.*$/m, line => {
+    let rest = line.replace(new RegExp(",?\\s*#" + src + "(?!\\d)"), "");
+    rest = rest.replace(/Depende de:\s*,/, "Depende de:");
+    if (/Depende de:\s*$/.test(rest)) rest = "Depende de: Ninguna";
+    return rest;
+  });
 }
 
 async function fetchAllIssues(token) {
@@ -121,48 +242,249 @@ async function fetchAllIssues(token) {
   return all.filter(i => !i.pull_request);
 }
 
-function buildTasks(issues) {
-  const today = new Date().toISOString().slice(0, 10);
-  const tasks = issues.map(i => {
+// Construcción de tareas y enlaces para DHTMLX.
+// Fechas del issue son inclusivas; DHTMLX usa fin exclusivo, así que end_date = fin inclusivo + 1 día.
+// Los hitos (inicio igual a fin) usan type milestone con inicio igual a fin.
+function buildData(issues) {
+  const tasks = [];
+  const byNum = new Map();
+  issues.forEach((i, idx) => {
     const body = i.body || "";
-    let start = parseDate(body, "GanttStart");
-    let end = parseDate(body, "GanttDue");
-    if (!start) start = (i.created_at || today).slice(0, 10);
-    if (!end) end = addDays(start, 1);
-    if (end < start) end = start;
-    let cls = "bar-open";
-    if (i.state === "closed") cls = "bar-closed";
-    else if (end < today) cls = "bar-overdue";
-    const assignees = (i.assignees || []).map(a => "@" + a.login);
-    const who = assignees.length ? assignees.join(", ") : "Sin asignar";
-    return {
+    const gs = parseDateLine(body, "GanttStart");
+    const gd = parseDateLine(body, "GanttDue");
+    let start, inclEnd, milestone = false;
+    if (gs && gd) {
+      start = parseYMD(gs);
+      inclEnd = parseYMD(gd);
+      if (gd === gs) milestone = true;
+    } else if (gs) {
+      start = parseYMD(gs);
+      inclEnd = addDaysDate(start, 1);
+    } else {
+      start = parseYMD((i.created_at || "").slice(0, 10));
+      inclEnd = addDaysDate(start, 1);
+    }
+    if (inclEnd < start) inclEnd = start;
+    const endEx = milestone ? new Date(start) : addDaysDate(inclEnd, 1);
+    const logins = (i.assignees || []).map(a => a.login);
+    const t = {
       id: String(i.number),
-      name: i.title + " (#" + i.number + ") · " + who,
-      start: start,
-      end: end,
-      progress: parseProgress(body, i.state),
-      dependencies: parseDeps(body),
-      custom_class: cls
+      text: i.title + " (#" + i.number + ")",
+      start_date: start,
+      end_date: endEx,
+      inclusiveEnd: inclEnd,
+      progress: parseProgress(body, i.state) / 100,
+      assignees: logins,
+      assignee: logins.length ? logins.map(l => "@" + l).join(", ") : "Sin asignar",
+      state: i.state,
+      statusCls: statusClsFor(i.state, inclEnd),
+      body: body,
+      rest_id: i.id,
+      order: idx
     };
+    if (milestone) t.type = "milestone";
+    tasks.push(t);
+    byNum.set(i.number, t);
   });
-  tasks.sort((a, b) => a.start.localeCompare(b.start) || (parseInt(a.id) - parseInt(b.id)));
-  return tasks;
+  tasks.sort((a, b) => dayNum(a.start_date) - dayNum(b.start_date) || (parseInt(a.id) - parseInt(b.id)));
+  tasks.forEach((t, idx) => { t.order = idx; });
+  const links = [];
+  const seen = new Set();
+  issues.forEach(i => {
+    if (i.pull_request) return;
+    parseDepsArr(i.body || "").forEach(d => {
+      if (!byNum.has(d) || d === i.number) return;
+      const key = d + "->" + i.number;
+      if (seen.has(key)) return;
+      seen.add(key);
+      links.push({ id: "l" + d + "_" + i.number, source: String(d), target: String(i.number), type: "0" });
+    });
+  });
+  return { tasks, links };
 }
 
-function render(tasks) {
-  currentTasks = tasks;
-  $("#wrap").style.display = "block";
-  $("#controls").style.display = "flex";
-  const svg = $("#gantt");
-  svg.innerHTML = "";
-  gantt = new Gantt("#gantt", tasks, {
-    view_mode: currentMode,
-    language: "es",
-    popup_trigger: "click",
-    on_click: task => { window.open("https://github.com/" + REPO + "/issues/" + task.id, "_blank"); }
+function refreshTaskMeta(task) {
+  task.statusCls = statusClsFor(task.state, task.inclusiveEnd);
+}
+function updateMeta() {
+  let closed = 0, overdue = 0;
+  currentTasks.forEach(t => {
+    if (t.statusCls === "closed") closed++;
+    if (t.statusCls === "overdue") overdue++;
   });
-  const open = tasks.filter(t => t.custom_class !== "bar-closed").length;
-  $("#meta").textContent = tasks.length + " tareas · " + (tasks.length - open) + " completadas · " + open + " abiertas";
+  let msg = currentTasks.length + " tareas · " + closed + " cerradas · " + (currentTasks.length - closed) + " abiertas · " + overdue + " atrasadas";
+  if (criticalOn) msg += " · " + criticalSet.size + " en camino crítico";
+  $("#meta").textContent = msg;
+}
+function buildAssigneeFilter(tasks) {
+  const sel = $("#fAssignee");
+  const cur = sel.value;
+  const names = new Set();
+  tasks.forEach(t => t.assignees.forEach(l => names.add(l)));
+  sel.innerHTML = '<option value="all">Todos</option>';
+  [...names].sort().forEach(l => {
+    const o = document.createElement("option");
+    o.value = l;
+    o.textContent = "@" + l;
+    sel.appendChild(o);
+  });
+  const o2 = document.createElement("option");
+  o2.value = "Sin asignar";
+  o2.textContent = "Sin asignar";
+  sel.appendChild(o2);
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : "all";
+  filterAssignee = sel.value;
+}
+
+function setScale(mode) {
+  if (mode === "Day") {
+    gantt.config.scales = [{ unit: "day", step: 1, format: d => d.getDate() + " " + MESES_CORTO[d.getMonth()] + " " + d.getFullYear() }];
+  } else if (mode === "Month") {
+    gantt.config.scales = [
+      { unit: "month", step: 1, format: d => MESES[d.getMonth()] + " " + d.getFullYear() },
+      { unit: "week", step: 1, format: d => d.getDate() + " " + MESES_CORTO[d.getMonth()] }
+    ];
+  } else {
+    gantt.config.scales = [
+      { unit: "week", step: 1, format: d => "Semana del " + d.getDate() + " " + MESES_CORTO[d.getMonth()] },
+      { unit: "day", step: 1, format: d => String(d.getDate()) }
+    ];
+  }
+  gantt.render();
+}
+
+function initGantt() {
+  if (ganttReady) return;
+  if (typeof gantt === "undefined") throw new Error("No se pudo cargar la librería DHTMLX desde el CDN. Revisa tu conexión y recarga la página.");
+  gantt.config.columns = [
+    { name: "text", label: "Tarea", tree: true, width: "*" },
+    { name: "assignee", label: "Asignado", width: 120, template: t => t.assignee },
+    { name: "start", label: "Inicio", width: 95, template: t => fmtDate(t.start_date) },
+    { name: "end", label: "Fin", width: 95, template: t => fmtDate(t.inclusiveEnd) },
+    { name: "progress", label: "%", width: 45, template: t => Math.round(t.progress * 100) + "%" }
+  ];
+  gantt.config.grid_width = 520;
+  gantt.config.row_height = 28;
+  gantt.config.min_column_width = 50;
+  gantt.config.drag_move = true;
+  gantt.config.drag_resize = true;
+  gantt.config.drag_progress = true;
+  gantt.config.drag_links = true;
+  gantt.config.details_on_dblclick = false;
+  gantt.config.show_progress = true;
+  gantt.templates.task_class = function (start, end, task) {
+    let c = "task-" + task.statusCls;
+    if (criticalOn && criticalSet.has(task.id)) c += " task-critical";
+    return c;
+  };
+  gantt.templates.task_text = function () { return ""; };
+  gantt.templates.rightside_text = function (start, end, task) { return task.assignee; };
+  gantt.templates.tooltip_text = function (start, end, task) {
+    return "<b>" + esc(task.text) + "</b><br>Asignado: " + esc(task.assignee) +
+      "<br>" + fmtDate(task.start_date) + " a " + fmtDate(task.inclusiveEnd) +
+      "<br>Progreso: " + Math.round(task.progress * 100) + "% · Estado: " + task.state;
+  };
+  gantt.templates.grid_row_class = function (start, end, task) {
+    return (criticalOn && criticalSet.has(task.id)) ? "row-critical" : "";
+  };
+  // Capa de baselines: barra fantasma gris debajo de la barra real
+  gantt.addTaskLayer(function (task) {
+    if (!baselineOn || !task.baseline_start || !task.baseline_end) return false;
+    const sizes = gantt.getTaskPosition(task, task.baseline_start, addDaysDate(task.baseline_end, 1));
+    if (!sizes) return false;
+    const el = document.createElement("div");
+    el.className = "baseline-bar";
+    el.style.left = sizes.left + "px";
+    el.style.width = sizes.width + "px";
+    el.style.top = (sizes.top + gantt.config.task_height + 4) + "px";
+    return el;
+  });
+  // Filtros
+  gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
+    if (filterAssignee !== "all") {
+      if (filterAssignee === "Sin asignar") { if (task.assignees.length) return false; }
+      else if (!task.assignees.includes(filterAssignee)) return false;
+    }
+    if (filterStatus !== "all" && task.statusCls !== filterStatus) return false;
+    if (filterText && !(task.text.toLowerCase().includes(filterText) || String(task.id).includes(filterText))) return false;
+    return true;
+  });
+  // Guardar fechas antes de arrastrar, para revertir si el guardado falla
+  gantt.attachEvent("onBeforeTaskDrag", function (id, mode) {
+    const t = gantt.getTask(id);
+    t._preStart = new Date(t.start_date);
+    t._preEndEx = new Date(t.end_date);
+    t._preProgress = t.progress;
+    if (mode === "progress" && t.state === "closed") {
+      setStatus("Una tarea cerrada siempre muestra 100%.", false);
+      return false;
+    }
+    return true;
+  });
+  gantt.attachEvent("onAfterTaskDrag", function (id, mode) {
+    justDragged = true;
+    setTimeout(() => { justDragged = false; }, 300);
+    const task = gantt.getTask(id);
+    if (mode === "move" || mode === "resize") handleDateChange(task);
+    else if (mode === "progress") handleProgressChange(task);
+  });
+  gantt.attachEvent("onAfterLinkAdd", function (id, link) {
+    if (suppressLinkEvents) return;
+    handleLinkAdd(link);
+  });
+  gantt.attachEvent("onAfterLinkDelete", function (id, link) {
+    if (suppressLinkEvents) return;
+    handleLinkDelete(link);
+  });
+  gantt.attachEvent("onTaskClick", function (id) {
+    if (justDragged) return true;
+    selectedLinkId = null;
+    window.open("https://github.com/" + REPO + "/issues/" + id, "_blank");
+    return true;
+  });
+  gantt.attachEvent("onLinkClick", function (id) {
+    selectedLinkId = id;
+  });
+  gantt.attachEvent("onEmptyClick", function () {
+    selectedLinkId = null;
+  });
+  setScale("Week");
+  gantt.init("gantt_here");
+  ganttReady = true;
+}
+
+function afterDataLoad() {
+  if (todayMarkerId) { try { gantt.deleteMarker(todayMarkerId); } catch (e) {} }
+  todayMarkerId = gantt.addMarker({ start_date: new Date(), css: "today-marker", text: "Hoy" });
+  if (currentBaseline) attachBaseline();
+  if (criticalOn) computeCriticalPath();
+  updateMeta();
+}
+function attachBaseline() {
+  if (!currentBaseline) return;
+  gantt.eachTask(t => {
+    const b = currentBaseline.tasks[t.id];
+    if (b) {
+      t.baseline_start = parseYMD(b.start);
+      t.baseline_end = parseYMD(b.end);
+    } else {
+      t.baseline_start = null;
+      t.baseline_end = null;
+    }
+  });
+  gantt.render();
+}
+async function loadBaseline() {
+  try {
+    const res = await fetch("https://api.github.com/repos/" + GANTT_REPO + "/contents/baseline.json", {
+      headers: { "Authorization": "Bearer " + $("#token").value.trim(), "Accept": "application/vnd.github+json" }
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return JSON.parse(atob(j.content.replace(/\n/g, "")));
+  } catch (e) {
+    return null;
+  }
 }
 
 async function load() {
@@ -172,112 +494,572 @@ async function load() {
   setStatus("Cargando issues desde GitHub...");
   try {
     const issues = await fetchAllIssues(token);
-    const tasks = buildTasks(issues);
-    if (!tasks.length) { setStatus("No se encontraron issues en " + REPO + ".", true); return; }
-    render(tasks);
-    setStatus("Actualizado: " + new Date().toLocaleString("es-PR") + ". Pulsa una barra para abrir su issue en GitHub.");
+    const built = buildData(issues);
+    if (!built.tasks.length) { setStatus("No se encontraron issues en " + REPO + ".", true); return; }
+    currentTasks = built.tasks;
+    currentLinks = built.links;
+    $("#wrap").style.display = "block";
+    $("#controls").style.display = "flex";
+    initGantt();
+    buildAssigneeFilter(built.tasks);
+    suppressLinkEvents = true;
+    gantt.clearAll();
+    gantt.parse({ data: built.tasks, links: built.links });
+    suppressLinkEvents = false;
+    const bl = await loadBaseline();
+    if (bl) currentBaseline = bl;
+    afterDataLoad();
+    setStatus("Actualizado: " + new Date().toLocaleString("es-PR") + ". Clic en una barra abre su issue. Arrastra para editar (necesitas token con escritura).");
   } catch (e) {
     setStatus(e.message, true);
   }
 }
 
-$("#load").addEventListener("click", load);
-$("#token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
-$("#clear").addEventListener("click", () => {
-  localStorage.removeItem("arca_gantt_token");
-  $("#token").value = "";
-  setStatus("Token borrado de este dispositivo.");
-});
-document.querySelectorAll(".viewbtn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".viewbtn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentMode = btn.dataset.mode;
-    if (gantt) gantt.change_view_mode(currentMode);
+// Guardado en GitHub
+async function patchIssueBody(task, newBody) {
+  const res = await fetch("https://api.github.com/repos/" + REPO + "/issues/" + task.id, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ body: newBody })
   });
-});
+  if (res.ok) return true;
+  if (res.status === 403) {
+    setStatus("Tu token es de solo lectura: para editar, pega un token con permiso de escritura (fine-grained, solo repo ARCA, Issues en lectura y escritura). La barra volvió a su fecha anterior.", true);
+    return false;
+  }
+  setStatus("Error al guardar #" + task.id + ": GitHub devolvió " + res.status + ".", true);
+  return false;
+}
+function revertTask(task) {
+  task.start_date = new Date(task._preStart);
+  task.end_date = new Date(task._preEndEx);
+  task.progress = task._preProgress;
+  task.inclusiveEnd = task.type === "milestone" ? new Date(task._preStart) : addDaysDate(task._preEndEx, -1);
+  gantt.updateTask(task.id);
+  refreshTaskMeta(task);
+}
+function revertTaskTo(task, oldStart, oldEndEx) {
+  task.start_date = new Date(oldStart);
+  task.end_date = new Date(oldEndEx);
+  task.inclusiveEnd = task.type === "milestone" ? new Date(oldStart) : addDaysDate(oldEndEx, -1);
+  gantt.updateTask(task.id);
+  refreshTaskMeta(task);
+}
+async function handleDateChange(task) {
+  let newStart, newInclEnd;
+  if (task.type === "milestone") {
+    newStart = new Date(task.start_date);
+    newInclEnd = new Date(task.start_date);
+    task.end_date = new Date(task.start_date);
+  } else {
+    newStart = new Date(task.start_date);
+    newInclEnd = addDaysDate(task.end_date, -1);
+  }
+  const oldInclEnd = task.type === "milestone" ? new Date(task._preStart) : addDaysDate(task._preEndEx, -1);
+  if (fmtDate(newStart) === fmtDate(task._preStart) && fmtDate(newInclEnd) === fmtDate(oldInclEnd)) return;
+  const newBody = rewriteDates(task.body, fmtDate(newStart), fmtDate(newInclEnd));
+  let moved = [];
+  if (autoMove && task.type !== "milestone") {
+    moved = computeAutoMove(task, newInclEnd);
+    if (moved.length && !confirm("Mover " + moved.length + " tarea(s) dependiente(s) junto con esta?")) moved = [];
+  }
+  if (!await patchIssueBody(task, newBody)) { revertTask(task); return; }
+  task.body = newBody;
+  task.inclusiveEnd = newInclEnd;
+  for (const m of moved) {
+    const b = rewriteDates(m.task.body, fmtDate(m.newStart), fmtDate(m.newInclEnd));
+    if (await patchIssueBody(m.task, b)) {
+      m.task.body = b;
+      m.task.inclusiveEnd = m.newInclEnd;
+    } else {
+      revertTaskTo(m.task, m.oldStart, m.oldEndEx);
+    }
+  }
+  refreshTaskMeta(task);
+  moved.forEach(m => refreshTaskMeta(m.task));
+  if (criticalOn) computeCriticalPath();
+  updateMeta();
+  setStatus("Guardado #" + task.id + (moved.length ? " y " + moved.length + " dependiente(s)" : "") + ".");
+}
+async function handleProgressChange(task) {
+  const pct = Math.round(task.progress * 100);
+  if (pct === Math.round(task._preProgress * 100)) return;
+  const newBody = rewriteProgress(task.body, pct);
+  if (!await patchIssueBody(task, newBody)) { revertTask(task); return; }
+  task.body = newBody;
+  setStatus("Progreso de #" + task.id + " guardado: " + pct + "%.");
+}
+// Mover dependientes (solo fin-a-inicio): si un sucesor empezaría antes de que termine el predecesor, se desplaza completo
+function computeAutoMove(task, newInclEnd) {
+  const links = gantt.getLinks().filter(l => l.source === String(task.id));
+  const moved = [];
+  const visited = new Set([String(task.id)]);
+  const queue = links.map(l => ({ id: l.target, predEnd: newInclEnd }));
+  while (queue.length) {
+    const item = queue.shift();
+    if (visited.has(String(item.id))) continue;
+    visited.add(String(item.id));
+    const succ = gantt.getTask(item.id);
+    if (!succ) continue;
+    const minStart = addDaysDate(item.predEnd, 1);
+    if (succ.start_date < minStart) {
+      const dur = succ.type === "milestone" ? 0 : (dayNum(succ.inclusiveEnd) - dayNum(succ.start_date) + 1);
+      const ns = new Date(minStart);
+      const ne = succ.type === "milestone" ? new Date(minStart) : addDaysDate(minStart, dur - 1);
+      moved.push({ task: succ, newStart: ns, newInclEnd: ne, oldStart: new Date(succ.start_date), oldEndEx: new Date(succ.end_date) });
+      succ.start_date = ns;
+      succ.end_date = succ.type === "milestone" ? new Date(ns) : addDaysDate(ne, 1);
+      succ.inclusiveEnd = ne;
+      gantt.updateTask(succ.id);
+      gantt.getLinks().filter(l => l.source === String(succ.id)).forEach(l => {
+        queue.push({ id: l.target, predEnd: ne });
+      });
+    }
+  }
+  return moved;
+}
+function createsCycle(srcId, targetId) {
+  const succ = new Map();
+  gantt.getLinks().forEach(l => {
+    if (!succ.has(l.source)) succ.set(l.source, []);
+    succ.get(l.source).push(l.target);
+  });
+  const seen = new Set();
+  const stack = [String(targetId)];
+  while (stack.length) {
+    const cur = stack.pop();
+    if (cur === String(srcId)) return true;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    (succ.get(cur) || []).forEach(n => stack.push(String(n)));
+  }
+  return false;
+}
+async function handleLinkAdd(link) {
+  const target = gantt.getTask(link.target);
+  if (!target) return;
+  if (String(link.source) === String(link.target) || createsCycle(link.source, link.target)) {
+    suppressLinkEvents = true;
+    gantt.deleteLink(link.id);
+    suppressLinkEvents = false;
+    setStatus("Ese enlace crearía un ciclo en las dependencias. Se canceló.", true);
+    return;
+  }
+  const newBody = addDepToBody(target.body, link.source);
+  if (!await patchIssueBody(target, newBody)) {
+    suppressLinkEvents = true;
+    gantt.deleteLink(link.id);
+    suppressLinkEvents = false;
+    return;
+  }
+  target.body = newBody;
+  let note = "";
+  const srcTask = gantt.getTask(link.source);
+  if (srcTask) {
+    const res = await fetch("https://api.github.com/repos/" + REPO + "/issues/" + target.id + "/dependencies/blocked_by", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ issue_id: srcTask.rest_id })
+    });
+    if (!res.ok) note = " La relación nativa en GitHub falló (" + res.status + "), pero el texto quedó guardado.";
+  }
+  if (link.type !== "0") note += " Nota: el texto solo guarda el par de issues, no el tipo de enlace. Al recargar, el enlace vuelve como fin-a-inicio (FS).";
+  if (criticalOn) computeCriticalPath();
+  updateMeta();
+  setStatus("Enlace guardado: #" + target.id + " depende de #" + link.source + "." + note);
+}
+async function handleLinkDelete(link) {
+  const target = gantt.getTask(link.target);
+  if (!target) return;
+  const newBody = removeDepFromBody(target.body, link.source);
+  if (!await patchIssueBody(target, newBody)) {
+    suppressLinkEvents = true;
+    gantt.addLink({ id: link.id, source: link.source, target: link.target, type: link.type });
+    suppressLinkEvents = false;
+    return;
+  }
+  target.body = newBody;
+  let note = "";
+  const srcTask = gantt.getTask(link.source);
+  if (srcTask) {
+    const res = await fetch("https://api.github.com/repos/" + REPO + "/issues/" + target.id + "/dependencies/blocked_by/" + srcTask.rest_id, {
+      method: "DELETE",
+      headers: authHeaders()
+    });
+    if (!res.ok) note = " La relación nativa en GitHub no se pudo quitar (" + res.status + "), pero el texto quedó actualizado.";
+  }
+  if (criticalOn) computeCriticalPath();
+  updateMeta();
+  setStatus("Enlace quitado: #" + target.id + " ya no depende de #" + link.source + "." + note);
+}
 
-const saved = localStorage.getItem("arca_gantt_token");
-if (saved) { $("#token").value = saved; load(); }
+// Camino crítico (cálculo propio, sin PRO): orden topológico y ruta más larga, todo fin-a-inicio
+function computeCriticalPath() {
+  const list = [];
+  gantt.eachTask(t => list.push(t));
+  const succ = new Map();
+  const preds = new Map();
+  list.forEach(t => { succ.set(String(t.id), []); preds.set(String(t.id), []); });
+  gantt.getLinks().forEach(l => {
+    const s = String(l.source), tg = String(l.target);
+    if (succ.has(s) && succ.has(tg)) { succ.get(s).push(tg); preds.get(tg).push(s); }
+  });
+  const dur = t => t.type === "milestone" ? 0 : (dayNum(t.inclusiveEnd) - dayNum(t.start_date) + 1);
+  const indeg = new Map();
+  list.forEach(t => indeg.set(String(t.id), preds.get(String(t.id)).length));
+  const queue = list.filter(t => indeg.get(String(t.id)) === 0).map(t => String(t.id));
+  const topo = [];
+  while (queue.length) {
+    const cur = queue.shift();
+    topo.push(cur);
+    succ.get(cur).forEach(n => {
+      indeg.set(n, indeg.get(n) - 1);
+      if (indeg.get(n) === 0) queue.push(n);
+    });
+  }
+  if (topo.length !== list.length) {
+    criticalSet = new Set();
+    gantt.render();
+    updateMeta();
+    setStatus("Hay un ciclo en las dependencias: el camino crítico no se calculó.", true);
+    return false;
+  }
+  const byId = new Map(list.map(t => [String(t.id), t]));
+  const ES = new Map(), EF = new Map();
+  topo.forEach(id => {
+    const t = byId.get(id);
+    let es = null;
+    preds.get(id).forEach(p => {
+      const v = EF.get(p) + 1;
+      if (es === null || v > es) es = v;
+    });
+    if (es === null) es = dayNum(t.start_date);
+    ES.set(id, es);
+    EF.set(id, dur(t) > 0 ? es + dur(t) - 1 : es);
+  });
+  let projectFinish = -Infinity;
+  EF.forEach(v => { if (v > projectFinish) projectFinish = v; });
+  const LS = new Map(), LF = new Map();
+  [...topo].reverse().forEach(id => {
+    const t = byId.get(id);
+    let lf = null;
+    succ.get(id).forEach(s => {
+      const v = LS.get(s) - 1;
+      if (lf === null || v < lf) lf = v;
+    });
+    if (lf === null) lf = projectFinish;
+    LF.set(id, lf);
+    LS.set(id, lf - (dur(t) > 0 ? dur(t) - 1 : 0));
+  });
+  criticalSet = new Set();
+  topo.forEach(id => { if (LS.get(id) - ES.get(id) === 0) criticalSet.add(id); });
+  gantt.render();
+  updateMeta();
+  return true;
+}
 
-const SHARED_URL = "https://jaredjomar.github.io/ARCA-gantt/shared.html";
+function applyFilters() {
+  filterAssignee = $("#fAssignee").value;
+  filterStatus = $("#fStatus").value;
+  filterText = $("#fSearch").value.trim().toLowerCase();
+  gantt.refreshData();
+}
+function renderWorkload() {
+  const map = new Map();
+  gantt.eachTask(t => {
+    const who = t.assignees.length ? t.assignees : ["Sin asignar"];
+    const days = t.type === "milestone" ? 0 : (dayNum(t.inclusiveEnd) - dayNum(t.start_date) + 1);
+    who.forEach(w => {
+      const e = map.get(w) || { total: 0, open: 0, overdue: 0, days: 0 };
+      e.total++;
+      if (t.state !== "closed") e.open++;
+      if (t.statusCls === "overdue") e.overdue++;
+      e.days += days;
+      map.set(w, e);
+    });
+  });
+  const rows = [...map.entries()].sort((a, b) => b[1].open - a[1].open);
+  $("#workloadBody").innerHTML = rows.map(([w, e]) =>
+    "<tr><td>" + esc(w === "Sin asignar" ? w : "@" + w) + "</td><td>" + e.total + "</td><td>" + e.open + "</td><td>" + e.overdue + "</td><td>" + e.days + "</td></tr>"
+  ).join("");
+}
 
-function buildStandaloneHTML(tasks, stamp) {
-  const tasksJson = JSON.stringify(tasks).replace(/</g, "\\u003c");
+async function saveBaseline() {
+  if (!currentTasks.length) { setStatus("Primero carga el Gantt.", true); return; }
+  if (!confirm("Guardar la baseline con las fechas actuales? Esto sobrescribe la baseline anterior.")) return;
+  const data = { savedAt: new Date().toISOString(), tasks: {} };
+  gantt.eachTask(t => {
+    data.tasks[t.id] = { start: fmtDate(t.start_date), end: fmtDate(t.inclusiveEnd) };
+  });
+  const token = $("#token").value.trim();
+  const url = "https://api.github.com/repos/" + GANTT_REPO + "/contents/baseline.json";
+  const headers = { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "Content-Type": "application/json" };
+  let sha = null;
+  const get = await fetch(url, { headers });
+  if (get.ok) { const j = await get.json(); sha = j.sha; }
+  const body = { message: "Actualizar baseline del Gantt", branch: "main", content: btoa(JSON.stringify(data, null, 2)) };
+  if (sha) body.sha = sha;
+  const put = await fetch(url, { method: "PUT", headers, body: JSON.stringify(body) });
+  if (!put.ok) {
+    setStatus("No se pudo guardar la baseline (" + put.status + "). El token necesita permiso de escritura en el repo " + GANTT_REPO + " (Contents).", true);
+    return;
+  }
+  currentBaseline = data;
+  attachBaseline();
+  setStatus("Baseline guardada (" + Object.keys(data.tasks).length + " tareas). Activa «Mostrar baseline» para verla.");
+}
+
+// Exportar: página autocontenida con DHTMLX (solo lectura, datos incrustados)
+function standaloneData() {
+  const tasks = [];
+  gantt.eachTask(t => {
+    const o = {
+      id: String(t.id), text: t.text,
+      start_date: fmtDate(t.start_date), end_date: fmtDate(t.end_date), inclusiveEnd: fmtDate(t.inclusiveEnd),
+      progress: t.progress, assignee: t.assignee, assignees: t.assignees,
+      statusCls: t.statusCls, state: t.state, order: t.order
+    };
+    if (t.type === "milestone") o.type = "milestone";
+    if (t.baseline_start) o.baseline_start = fmtDate(t.baseline_start);
+    if (t.baseline_end) o.baseline_end = fmtDate(t.baseline_end);
+    tasks.push(o);
+  });
+  const links = gantt.getLinks().map(l => ({ id: l.id, source: String(l.source), target: String(l.target), type: l.type }));
+  const critical = criticalOn ? [...criticalSet] : computeCriticalIds();
+  return { tasks, links, critical };
+}
+function computeCriticalIds() {
+  const prev = criticalOn;
+  const prevSet = criticalSet;
+  criticalOn = true;
+  const ok = computeCriticalPath();
+  const ids = ok ? [...criticalSet] : [];
+  criticalOn = prev;
+  criticalSet = prevSet;
+  gantt.render();
+  return ids;
+}
+function buildStandaloneHTML(data, stamp, withBaseline) {
+  const dataJson = JSON.stringify(data).replace(/</g, "\\u003c");
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARCA — Gantt (vista compartida)</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<title>ARCA - Gantt (vista compartida)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.css">
 <style>
   body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f6f8fa; color: #24292f; }
   header { background: #0d2136; color: #fff; padding: 16px 20px; }
   header h1 { margin: 0 0 4px; font-size: 20px; }
   header p { margin: 0; font-size: 13px; opacity: .85; }
   .panel { background: #fff; border-bottom: 1px solid #d0d7de; padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .panel input[type="text"], .panel select { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px; }
+  .panel label { font-size: 14px; }
   button { padding: 8px 14px; border: 1px solid #1f6feb; background: #1f6feb; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
   button.secondary { background: #fff; color: #24292f; border-color: #d0d7de; }
   button.secondary.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
   .legend { display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; }
   .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
-  .chart-wrap { overflow-x: auto; background: #fff; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; }
-  .gantt .bar-open .bar { fill: #9ec1e8; }
-  .gantt .bar-open .bar-progress { fill: #1f6feb; }
-  .gantt .bar-closed .bar { fill: #cdeeda; }
-  .gantt .bar-closed .bar-progress { fill: #2da44e; }
-  .gantt .bar-overdue .bar { fill: #f0b3ae; }
-  .gantt .bar-overdue .bar-progress { fill: #d1242f; }
-  .gantt .grid-header { fill: #f6f8fa; }
-  .details { font-size: 13px; }
+  #gantt_here { width: auto; height: 650px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  .gantt_task_line.task-open { background-color: #1f6feb; border-color: #1f6feb; }
+  .gantt_task_line.task-open .gantt_task_progress { background-color: #0d4ea6; }
+  .gantt_task_line.task-closed { background-color: #2da44e; border-color: #2da44e; }
+  .gantt_task_line.task-closed .gantt_task_progress { background-color: #1d7a38; }
+  .gantt_task_line.task-overdue { background-color: #d1242f; border-color: #d1242f; }
+  .gantt_task_line.task-overdue .gantt_task_progress { background-color: #9e1b25; }
+  .gantt_task_line.task-critical { border: 2px solid #d1242f; }
+  .gantt_row.row-critical { font-weight: 600; }
+  .baseline-bar { position: absolute; height: 6px; background: #8a94a6; opacity: 0.55; border-radius: 3px; z-index: 0; }
+  .gantt_marker.today-marker { background-color: rgba(209,36,47,.12); }
+  .gantt_marker.today-marker .gantt_marker_content { color: #d1242f; font-size: 12px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>ARCA — Gantt clásico (vista compartida)</h1>
-  <p>Datos al ${stamp}. No requiere token ni acceso al repo.</p>
+  <h1>ARCA - Gantt clásico (vista compartida)</h1>
+  <p>Datos al ${stamp}. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
   <button class="secondary viewbtn" data-mode="Day">Día</button>
   <button class="secondary viewbtn active" data-mode="Week">Semana</button>
   <button class="secondary viewbtn" data-mode="Month">Mes</button>
+  <label>Asignado:
+    <select id="fAssignee"><option value="all">Todos</option></select>
+  </label>
+  <label>Estado:
+    <select id="fStatus">
+      <option value="all">Todos</option>
+      <option value="open">Abierta</option>
+      <option value="closed">Cerrada</option>
+      <option value="overdue">Atrasada</option>
+    </select>
+  </label>
+  <input type="text" id="fSearch" placeholder="Buscar tarea o #número">
+  <button id="criticalBtn" class="secondary">Camino crítico</button>
+  ${withBaseline ? '<label><input type="checkbox" id="showBaseline"> Mostrar baseline</label>' : ''}
   <span class="legend">
     <span><span class="swatch" style="background:#1f6feb;"></span>Abierta</span>
-    <span><span class="swatch" style="background:#2da44e;"></span>Completada (issue cerrado)</span>
-    <span><span class="swatch" style="background:#d1242f;"></span>Atrasada (fecha pasada, issue abierto)</span>
+    <span><span class="swatch" style="background:#2da44e;"></span>Cerrada</span>
+    <span><span class="swatch" style="background:#d1242f;"></span>Atrasada</span>
+    <span><span class="swatch" style="background:#fff;border:2px solid #d1242f;"></span>Camino crítico</span>
+    ${withBaseline ? '<span><span class="swatch" style="background:#8a94a6;"></span>Baseline</span>' : ''}
   </span>
   <span id="meta" style="font-size:13px;"></span>
 </div>
-<div class="chart-wrap">
-  <svg id="gantt"></svg>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"><\/script>
+<div id="gantt_here"></div>
+<script src="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.js"><\/script>
 <script>
-const tasks = ${tasksJson};
-let gantt = null;
-let currentMode = "Week";
-gantt = new Gantt("#gantt", tasks, { view_mode: currentMode, language: "es", popup_trigger: "click" });
-const open = tasks.filter(t => t.custom_class !== "bar-closed").length;
-document.getElementById("meta").textContent = tasks.length + " tareas · " + (tasks.length - open) + " completadas · " + open + " abiertas";
-document.querySelectorAll(".viewbtn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".viewbtn").forEach(b => b.classList.remove("active"));
+const DATA = ${dataJson};
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MESES_CORTO = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+const criticalIds = new Set(DATA.critical || []);
+let criticalOn = false;
+let baselineOn = false;
+let filterAssignee = "all";
+let filterStatus = "all";
+let filterText = "";
+function fmtDate(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function parseYMD(s) { const p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function addDaysDate(d, n) { const out = new Date(d); out.setDate(out.getDate() + n); return out; }
+DATA.tasks.forEach(function (t) {
+  t.start_date = parseYMD(t.start_date);
+  t.end_date = parseYMD(t.end_date);
+  t.inclusiveEnd = parseYMD(t.inclusiveEnd);
+  if (t.baseline_start) t.baseline_start = parseYMD(t.baseline_start);
+  if (t.baseline_end) t.baseline_end = parseYMD(t.baseline_end);
+});
+gantt.config.columns = [
+  { name: "text", label: "Tarea", tree: true, width: "*" },
+  { name: "assignee", label: "Asignado", width: 120, template: function (t) { return t.assignee; } },
+  { name: "start", label: "Inicio", width: 95, template: function (t) { return fmtDate(t.start_date); } },
+  { name: "end", label: "Fin", width: 95, template: function (t) { return fmtDate(t.inclusiveEnd); } },
+  { name: "progress", label: "%", width: 45, template: function (t) { return Math.round(t.progress * 100) + "%"; } }
+];
+gantt.config.grid_width = 520;
+gantt.config.row_height = 28;
+gantt.config.min_column_width = 50;
+gantt.config.drag_move = false;
+gantt.config.drag_resize = false;
+gantt.config.drag_progress = false;
+gantt.config.drag_links = false;
+gantt.config.details_on_dblclick = false;
+gantt.config.show_progress = true;
+gantt.templates.task_class = function (start, end, task) {
+  let c = "task-" + task.statusCls;
+  if (criticalOn && criticalIds.has(task.id)) c += " task-critical";
+  return c;
+};
+gantt.templates.task_text = function () { return ""; };
+gantt.templates.rightside_text = function (start, end, task) { return task.assignee; };
+gantt.templates.grid_row_class = function (start, end, task) {
+  return (criticalOn && criticalIds.has(task.id)) ? "row-critical" : "";
+};
+gantt.addTaskLayer(function (task) {
+  if (!baselineOn || !task.baseline_start || !task.baseline_end) return false;
+  const sizes = gantt.getTaskPosition(task, task.baseline_start, addDaysDate(task.baseline_end, 1));
+  if (!sizes) return false;
+  const el = document.createElement("div");
+  el.className = "baseline-bar";
+  el.style.left = sizes.left + "px";
+  el.style.width = sizes.width + "px";
+  el.style.top = (sizes.top + gantt.config.task_height + 4) + "px";
+  return el;
+});
+gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
+  if (filterAssignee !== "all") {
+    if (filterAssignee === "Sin asignar") { if (task.assignees.length) return false; }
+    else if (task.assignees.indexOf(filterAssignee) === -1) return false;
+  }
+  if (filterStatus !== "all" && task.statusCls !== filterStatus) return false;
+  if (filterText && task.text.toLowerCase().indexOf(filterText) === -1 && String(task.id).indexOf(filterText) === -1) return false;
+  return true;
+});
+function setScale(mode) {
+  if (mode === "Day") {
+    gantt.config.scales = [{ unit: "day", step: 1, format: function (d) { return d.getDate() + " " + MESES_CORTO[d.getMonth()] + " " + d.getFullYear(); } }];
+  } else if (mode === "Month") {
+    gantt.config.scales = [
+      { unit: "month", step: 1, format: function (d) { return MESES[d.getMonth()] + " " + d.getFullYear(); } },
+      { unit: "week", step: 1, format: function (d) { return d.getDate() + " " + MESES_CORTO[d.getMonth()]; } }
+    ];
+  } else {
+    gantt.config.scales = [
+      { unit: "week", step: 1, format: function (d) { return "Semana del " + d.getDate() + " " + MESES_CORTO[d.getMonth()]; } },
+      { unit: "day", step: 1, format: function (d) { return String(d.getDate()); } }
+    ];
+  }
+  gantt.render();
+}
+function updateMeta() {
+  let closed = 0, overdue = 0;
+  DATA.tasks.forEach(function (t) {
+    if (t.statusCls === "closed") closed++;
+    if (t.statusCls === "overdue") overdue++;
+  });
+  let msg = DATA.tasks.length + " tareas · " + closed + " cerradas · " + (DATA.tasks.length - closed) + " abiertas · " + overdue + " atrasadas";
+  if (criticalOn) msg += " · " + criticalIds.size + " en camino crítico";
+  document.getElementById("meta").textContent = msg;
+}
+function applyFilters() {
+  filterAssignee = document.getElementById("fAssignee").value;
+  filterStatus = document.getElementById("fStatus").value;
+  filterText = document.getElementById("fSearch").value.trim().toLowerCase();
+  gantt.refreshData();
+}
+(function buildAssignees() {
+  const sel = document.getElementById("fAssignee");
+  const names = {};
+  DATA.tasks.forEach(function (t) { t.assignees.forEach(function (l) { names[l] = true; }); });
+  Object.keys(names).sort().forEach(function (l) {
+    const o = document.createElement("option");
+    o.value = l;
+    o.textContent = "@" + l;
+    sel.appendChild(o);
+  });
+  const o2 = document.createElement("option");
+  o2.value = "Sin asignar";
+  o2.textContent = "Sin asignar";
+  sel.appendChild(o2);
+})();
+setScale("Week");
+gantt.init("gantt_here");
+gantt.parse({ data: DATA.tasks, links: DATA.links });
+gantt.addMarker({ start_date: new Date(), css: "today-marker", text: "Hoy" });
+updateMeta();
+document.querySelectorAll(".viewbtn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    document.querySelectorAll(".viewbtn").forEach(function (b) { b.classList.remove("active"); });
     btn.classList.add("active");
-    currentMode = btn.dataset.mode;
-    if (gantt) gantt.change_view_mode(currentMode);
+    setScale(btn.dataset.mode);
   });
 });
+document.getElementById("fAssignee").addEventListener("change", applyFilters);
+document.getElementById("fStatus").addEventListener("change", applyFilters);
+document.getElementById("fSearch").addEventListener("input", applyFilters);
+document.getElementById("criticalBtn").addEventListener("click", function () {
+  criticalOn = !criticalOn;
+  this.classList.toggle("active", criticalOn);
+  gantt.render();
+  updateMeta();
+});
+const sb = document.getElementById("showBaseline");
+if (sb) {
+  sb.addEventListener("change", function () {
+    baselineOn = sb.checked;
+    gantt.render();
+  });
+}
 <\/script>
 </body>
 </html>`;
 }
-
 function exportStandalone() {
-  if (!currentTasks.length) { setStatus("Primero carga el Gantt.", true); return; }
+  if (!ganttReady) { setStatus("Primero carga el Gantt.", true); return; }
   const stamp = new Date().toLocaleString("es-PR");
-  const page = buildStandaloneHTML(currentTasks, stamp);
+  const data = standaloneData();
+  const page = buildStandaloneHTML(data, stamp, !!currentBaseline);
   const blob = new Blob([page], { type: "text/html" });
   const a = document.createElement("a");
   const d = new Date();
@@ -286,9 +1068,8 @@ function exportStandalone() {
   a.download = "ARCA_Gantt_Export_" + ymd + ".html";
   a.click();
   URL.revokeObjectURL(a.href);
-  $("#shareMsg").textContent = "Exportación descargada (" + currentTasks.length + " tareas, datos al " + stamp + ").";
+  $("#shareMsg").textContent = "Exportación descargada (" + data.tasks.length + " tareas, datos al " + stamp + ").";
 }
-
 async function shareLink() {
   const msg = $("#shareMsg");
   try {
@@ -300,8 +1081,97 @@ async function shareLink() {
   window.open(SHARED_URL, "_blank");
 }
 
+// Controles
+$("#load").addEventListener("click", load);
+$("#token").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
+$("#clear").addEventListener("click", () => {
+  localStorage.removeItem("arca_gantt_token");
+  $("#token").value = "";
+  setStatus("Token borrado de este dispositivo.");
+});
+document.querySelectorAll(".viewbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".viewbtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    if (ganttReady) setScale(btn.dataset.mode);
+  });
+});
+$("#fAssignee").addEventListener("change", () => { if (ganttReady) applyFilters(); });
+$("#fStatus").addEventListener("change", () => { if (ganttReady) applyFilters(); });
+$("#fSearch").addEventListener("input", () => { if (ganttReady) applyFilters(); });
+$("#groupPerson").addEventListener("change", e => {
+  if (!ganttReady) return;
+  if (e.target.checked) gantt.sort("assignee");
+  else gantt.sort("order");
+});
+$("#editToggle").addEventListener("change", e => {
+  if (!ganttReady) return;
+  gantt.config.readonly = !e.target.checked;
+  gantt.render();
+});
+$("#autoMove").addEventListener("change", e => { autoMove = e.target.checked; });
+$("#criticalBtn").addEventListener("click", () => {
+  if (!ganttReady) return;
+  criticalOn = !criticalOn;
+  $("#criticalBtn").classList.toggle("active", criticalOn);
+  if (criticalOn) {
+    if (computeCriticalPath()) setStatus("Camino crítico activado: " + criticalSet.size + " tareas.");
+  } else {
+    criticalSet = new Set();
+    gantt.render();
+    updateMeta();
+    setStatus("Camino crítico desactivado.");
+  }
+});
+$("#saveBaselineBtn").addEventListener("click", saveBaseline);
+$("#showBaseline").addEventListener("change", async e => {
+  baselineOn = e.target.checked;
+  if (baselineOn && !currentBaseline) {
+    const bl = await loadBaseline();
+    if (bl) {
+      currentBaseline = bl;
+      attachBaseline();
+      setStatus("Baseline cargada.");
+    } else {
+      baselineOn = false;
+      e.target.checked = false;
+      setStatus("No hay baseline guardada todavía. Usa «Guardar baseline» primero.", true);
+      return;
+    }
+  }
+  if (ganttReady) gantt.render();
+});
+$("#workloadBtn").addEventListener("click", () => {
+  if (!ganttReady) return;
+  const w = $("#workload");
+  if (w.style.display === "none") {
+    renderWorkload();
+    w.style.display = "block";
+    $("#workloadBtn").classList.add("active");
+  } else {
+    w.style.display = "none";
+    $("#workloadBtn").classList.remove("active");
+  }
+});
 $("#exportBtn").addEventListener("click", exportStandalone);
 $("#shareBtn").addEventListener("click", shareLink);
+$("#printBtn").addEventListener("click", () => window.print());
+document.addEventListener("keydown", e => {
+  if (e.key !== "Delete") return;
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "SELECT" || ae.tagName === "TEXTAREA")) return;
+  if (!selectedLinkId || !ganttReady || !$("#editToggle").checked) return;
+  if (confirm("Quitar el enlace seleccionado?")) gantt.deleteLink(selectedLinkId);
+});
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  if (!ganttReady) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => gantt.render(), 200);
+});
+
+const saved = localStorage.getItem("arca_gantt_token");
+if (saved) { $("#token").value = saved; load(); }
 </script>
 </body>
 </html>
