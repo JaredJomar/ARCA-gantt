@@ -1020,7 +1020,7 @@ DATA.tasks.forEach(function (t) {
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 function escAttr(s) { return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 gantt.config.columns = [
-  { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title=\"" + escAttr(t.text) + "\">" + esc(t.text) + "</span>"; } },
+  { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return '<span title="' + escAttr(t.text) + '">' + esc(t.text) + '</span>'; } },
   { name: "assignee", label: "Asignado", width: 120, template: function (t) { return t.assignee; } },
   { name: "start", label: "Inicio", width: 95, template: function (t) { return fmtDate(t.start_date); } },
   { name: "end", label: "Fin", width: 95, template: function (t) { return fmtDate(t.inclusiveEnd); } },
