@@ -22,7 +22,7 @@
   .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
   #status { padding: 10px 20px; font-size: 14px; }
   #status.error { color: #b42318; }
-  #gantt_here { width: auto; height: 650px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  #gantt_here { width: auto; height: calc(100vh - 240px); min-height: 480px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
   /* Colores de barras por estado (DHTMLX) */
   .gantt_task_line.task-open { background-color: #1f6feb; border-color: #1f6feb; }
   .gantt_task_line.task-open .gantt_task_progress { background-color: #0d4ea6; }
@@ -33,8 +33,7 @@
   .gantt_task_line.task-critical { border: 2px solid #d1242f; }
   .gantt_row.row-critical { font-weight: 600; }
   .baseline-cell { display: block; height: 6px; margin-top: 21px; background: #8a94a6; opacity: 0.55; border-radius: 3px; }
-  .gantt_marker.today-marker { background-color: rgba(209,36,47,.12); }
-  .gantt_marker.today-marker .gantt_marker_content { color: #d1242f; font-size: 12px; }
+  .today-cell, .gantt_task_cell.today-cell { background-color: rgba(209,36,47,0.10); }
   #workload { margin: 0 20px 24px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 16px; }
   #workload table { border-collapse: collapse; font-size: 14px; }
   #workload th, #workload td { padding: 6px 14px 6px 0; text-align: left; border-bottom: 1px solid #eee; }
@@ -49,7 +48,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico</h1>
-  <p>Datos en vivo desde los issues de GitHub (repo JaredJomar/ARCA). Arrastra barras para cambiar fechas, estira para cambiar duración, arrastra entre barras para crear dependencias. Todo se guarda en el issue.</p>
+  <p>Datos en vivo desde los issues de GitHub (repo JaredJomar/ARCA). Arrastra barras para cambiar fechas, estira para cambiar duración, arrastra entre barras para crear dependencias. Todo se guarda en el issue. Arrastra el borde derecho de un encabezado de columna para ensancharla.</p>
 </header>
 
 <div class="panel">
@@ -133,7 +132,6 @@ let baselineOn = false;
 let criticalOn = false;
 let criticalSet = new Set();
 let autoMove = false;
-let todayMarkerId = null;
 let selectedLinkId = null;
 let suppressLinkEvents = false;
 let justDragged = false;
@@ -149,6 +147,9 @@ function setStatus(msg, isError) {
 }
 function esc(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function fmtDate(d) {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -359,13 +360,13 @@ function initGantt() {
   if (ganttReady) return;
   if (typeof gantt === "undefined") throw new Error("No se pudo cargar la librería DHTMLX desde el CDN. Revisa tu conexión y recarga la página.");
   gantt.config.columns = [
-    { name: "text", label: "Tarea", tree: true, width: "*" },
+    { name: "text", label: "Tarea", tree: true, width: "*", template: t => "<span title=\"" + escAttr(t.text) + "\">" + esc(t.text) + "</span>" },
     { name: "assignee", label: "Asignado", width: 120, template: t => t.assignee },
     { name: "start", label: "Inicio", width: 95, template: t => fmtDate(t.start_date) },
     { name: "end", label: "Fin", width: 95, template: t => fmtDate(t.inclusiveEnd) },
     { name: "progress", label: "%", width: 45, template: t => Math.round(t.progress * 100) + "%" }
   ];
-  gantt.config.grid_width = 520;
+  gantt.config.grid_width = 660;
   gantt.config.row_height = 28;
   gantt.config.bar_height = 18;
   gantt.config.min_column_width = 50;
@@ -406,6 +407,86 @@ function initGantt() {
     if (rightPct <= leftPct) return "";
     return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;'></div>";
   };
+  // Hoy sin marcadores PRO: la columna del día actual se tiñe con una clase de celda.
+  function todayCellClass(task, date) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const end = currentScaleMode === "Month" ? addDaysDate(start, 7) : addDaysDate(start, 1);
+    return (today >= start && today < end) ? "today-cell" : "";
+  }
+  gantt.templates.task_cell_class = todayCellClass;
+  gantt.templates.timeline_cell_class = todayCellClass;
+  // Arrastre en el borde derecho del encabezado para ensanchar columnas.
+  // La edición Community no incluye resize de columnas, así que se implementa a mano.
+  function enableColumnResize() {
+    const root = document.getElementById("gantt_here");
+    if (!root || root.dataset.colResize) return;
+    root.dataset.colResize = "1";
+    let drag = null;
+    function headerCell(target) {
+      return target && target.closest ? target.closest(".gantt_grid_head_cell") : null;
+    }
+    function liveColumn(name) {
+      try { return gantt.getGridColumn(name) || null; } catch (e) { return null; }
+    }
+    function columnForCell(cell) {
+      const label = (cell.textContent || "").trim();
+      const cols = gantt.config.columns || [];
+      for (let i = 0; i < cols.length; i++) {
+        if (cols[i].label === label) return liveColumn(cols[i].name) || cols[i];
+      }
+      const idx = cell.parentNode ? Array.prototype.indexOf.call(cell.parentNode.children, cell) : -1;
+      if (idx >= 0 && idx < cols.length) return liveColumn(cols[idx].name) || cols[idx];
+      return null;
+    }
+    document.addEventListener("mousemove", function (e) {
+      if (drag) {
+        const dx = e.clientX - drag.startX;
+        const cols = gantt.config.columns || [];
+        let fixed = 0;
+        cols.forEach(function (c) {
+          if (c.name === drag.col.name) return;
+          const live = liveColumn(c.name) || c;
+          if (typeof live.width === "number") fixed += live.width;
+        });
+        let newGrid = drag.startGrid + dx;
+        if (drag.col.width === "*") {
+          newGrid = Math.max(fixed + 60, newGrid);
+        } else {
+          const newW = Math.max(40, drag.startWidth + dx);
+          drag.col.width = newW;
+          newGrid = Math.max(fixed + newW + 60, newGrid);
+        }
+        gantt.config.grid_width = newGrid;
+        gantt.render();
+        return;
+      }
+      const cell = headerCell(e.target);
+      if (cell) {
+        const r = cell.getBoundingClientRect();
+        const near = r.right - e.clientX;
+        root.style.cursor = (near >= 0 && near <= 6) ? "col-resize" : "";
+      } else {
+        root.style.cursor = "";
+      }
+    });
+    root.addEventListener("mousedown", function (e) {
+      const cell = headerCell(e.target);
+      if (!cell) return;
+      const r = cell.getBoundingClientRect();
+      const near = r.right - e.clientX;
+      if (near < 0 || near > 6) return;
+      const col = columnForCell(cell);
+      if (!col) return;
+      drag = { col: col, startX: e.clientX, startGrid: gantt.config.grid_width, startWidth: (typeof col.width === "number" ? col.width : 0) };
+      document.body.style.cursor = "col-resize";
+      e.preventDefault();
+    });
+    document.addEventListener("mouseup", function () {
+      if (drag) { drag = null; root.style.cursor = ""; document.body.style.cursor = ""; }
+    });
+  }
   // Filtros
   gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
     if (filterAssignee !== "all") {
@@ -457,12 +538,11 @@ function initGantt() {
   });
   setScale("Week");
   gantt.init("gantt_here");
+  enableColumnResize();
   ganttReady = true;
 }
 
 function afterDataLoad() {
-  if (todayMarkerId) { try { gantt.deleteMarker(todayMarkerId); } catch (e) {} }
-  todayMarkerId = gantt.addMarker({ start_date: new Date(), css: "today-marker", text: "Hoy" });
   if (currentBaseline) attachBaseline();
   if (criticalOn) computeCriticalPath();
   updateMeta();
@@ -868,7 +948,7 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   button.secondary.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
   .legend { display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; }
   .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
-  #gantt_here { width: auto; height: 650px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  #gantt_here { width: auto; height: calc(100vh - 240px); min-height: 480px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
   .gantt_task_line.task-open { background-color: #1f6feb; border-color: #1f6feb; }
   .gantt_task_line.task-open .gantt_task_progress { background-color: #0d4ea6; }
   .gantt_task_line.task-closed { background-color: #2da44e; border-color: #2da44e; }
@@ -878,8 +958,7 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   .gantt_task_line.task-critical { border: 2px solid #d1242f; }
   .gantt_row.row-critical { font-weight: 600; }
   .baseline-cell { display: block; height: 6px; margin-top: 21px; background: #8a94a6; opacity: 0.55; border-radius: 3px; }
-  .gantt_marker.today-marker { background-color: rgba(209,36,47,.12); }
-  .gantt_marker.today-marker .gantt_marker_content { color: #d1242f; font-size: 12px; }
+  .today-cell, .gantt_task_cell.today-cell { background-color: rgba(209,36,47,0.10); }
 </style>
 </head>
 <body>
@@ -938,14 +1017,16 @@ DATA.tasks.forEach(function (t) {
   if (t.baseline_start) t.baseline_start = parseYMD(t.baseline_start);
   if (t.baseline_end) t.baseline_end = parseYMD(t.baseline_end);
 });
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function escAttr(s) { return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 gantt.config.columns = [
-  { name: "text", label: "Tarea", tree: true, width: "*" },
+  { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title=\"" + escAttr(t.text) + "\">" + esc(t.text) + "</span>"; } },
   { name: "assignee", label: "Asignado", width: 120, template: function (t) { return t.assignee; } },
   { name: "start", label: "Inicio", width: 95, template: function (t) { return fmtDate(t.start_date); } },
   { name: "end", label: "Fin", width: 95, template: function (t) { return fmtDate(t.inclusiveEnd); } },
   { name: "progress", label: "%", width: 45, template: function (t) { return Math.round(t.progress * 100) + "%"; } }
 ];
-gantt.config.grid_width = 520;
+gantt.config.grid_width = 660;
 gantt.config.row_height = 28;
 gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
@@ -978,6 +1059,86 @@ gantt.templates.timeline_cell_content = function (task, date) {
   if (rightPct <= leftPct) return "";
   return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;'></div>";
 };
+// Hoy sin marcadores PRO: la columna del día actual se tiñe con una clase de celda.
+function todayCellClass(task, date) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const end = currentScaleMode === "Month" ? addDaysDate(start, 7) : addDaysDate(start, 1);
+  return (today >= start && today < end) ? "today-cell" : "";
+}
+gantt.templates.task_cell_class = todayCellClass;
+gantt.templates.timeline_cell_class = todayCellClass;
+// Arrastre en el borde derecho del encabezado para ensanchar columnas.
+// La edición Community no incluye resize de columnas, así que se implementa a mano.
+function enableColumnResize() {
+  const root = document.getElementById("gantt_here");
+  if (!root || root.dataset.colResize) return;
+  root.dataset.colResize = "1";
+  let drag = null;
+  function headerCell(target) {
+    return target && target.closest ? target.closest(".gantt_grid_head_cell") : null;
+  }
+  function liveColumn(name) {
+    try { return gantt.getGridColumn(name) || null; } catch (e) { return null; }
+  }
+  function columnForCell(cell) {
+    const label = (cell.textContent || "").trim();
+    const cols = gantt.config.columns || [];
+    for (let i = 0; i < cols.length; i++) {
+      if (cols[i].label === label) return liveColumn(cols[i].name) || cols[i];
+    }
+    const idx = cell.parentNode ? Array.prototype.indexOf.call(cell.parentNode.children, cell) : -1;
+    if (idx >= 0 && idx < cols.length) return liveColumn(cols[idx].name) || cols[idx];
+    return null;
+  }
+  document.addEventListener("mousemove", function (e) {
+    if (drag) {
+      const dx = e.clientX - drag.startX;
+      const cols = gantt.config.columns || [];
+      let fixed = 0;
+      cols.forEach(function (c) {
+        if (c.name === drag.col.name) return;
+        const live = liveColumn(c.name) || c;
+        if (typeof live.width === "number") fixed += live.width;
+      });
+      let newGrid = drag.startGrid + dx;
+      if (drag.col.width === "*") {
+        newGrid = Math.max(fixed + 60, newGrid);
+      } else {
+        const newW = Math.max(40, drag.startWidth + dx);
+        drag.col.width = newW;
+        newGrid = Math.max(fixed + newW + 60, newGrid);
+      }
+      gantt.config.grid_width = newGrid;
+      gantt.render();
+      return;
+    }
+    const cell = headerCell(e.target);
+    if (cell) {
+      const r = cell.getBoundingClientRect();
+      const near = r.right - e.clientX;
+      root.style.cursor = (near >= 0 && near <= 6) ? "col-resize" : "";
+    } else {
+      root.style.cursor = "";
+    }
+  });
+  root.addEventListener("mousedown", function (e) {
+    const cell = headerCell(e.target);
+    if (!cell) return;
+    const r = cell.getBoundingClientRect();
+    const near = r.right - e.clientX;
+    if (near < 0 || near > 6) return;
+    const col = columnForCell(cell);
+    if (!col) return;
+    drag = { col: col, startX: e.clientX, startGrid: gantt.config.grid_width, startWidth: (typeof col.width === "number" ? col.width : 0) };
+    document.body.style.cursor = "col-resize";
+    e.preventDefault();
+  });
+  document.addEventListener("mouseup", function () {
+    if (drag) { drag = null; root.style.cursor = ""; document.body.style.cursor = ""; }
+  });
+}
 gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
   if (filterAssignee !== "all") {
     if (filterAssignee === "Sin asignar") { if (task.assignees.length) return false; }
@@ -1037,8 +1198,8 @@ function applyFilters() {
 })();
 setScale("Week");
 gantt.init("gantt_here");
+enableColumnResize();
 gantt.parse({ data: DATA.tasks, links: DATA.links });
-gantt.addMarker({ start_date: new Date(), css: "today-marker", text: "Hoy" });
 updateMeta();
 document.querySelectorAll(".viewbtn").forEach(function (btn) {
   btn.addEventListener("click", function () {
