@@ -32,7 +32,7 @@
   .gantt_task_line.task-overdue .gantt_task_progress { background-color: #9e1b25; }
   .gantt_task_line.task-critical { border: 2px solid #d1242f; }
   .gantt_row.row-critical { font-weight: 600; }
-  .baseline-bar { position: absolute; height: 6px; background: #8a94a6; opacity: 0.55; border-radius: 3px; z-index: 0; }
+  .baseline-cell { display: block; height: 6px; margin-top: 21px; background: #8a94a6; opacity: 0.55; border-radius: 3px; }
   .gantt_marker.today-marker { background-color: rgba(209,36,47,.12); }
   .gantt_marker.today-marker .gantt_marker_content { color: #d1242f; font-size: 12px; }
   #workload { margin: 0 20px 24px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 12px 16px; }
@@ -137,6 +137,7 @@ let todayMarkerId = null;
 let selectedLinkId = null;
 let suppressLinkEvents = false;
 let justDragged = false;
+let currentScaleMode = "Week";
 let filterAssignee = "all";
 let filterStatus = "all";
 let filterText = "";
@@ -337,6 +338,7 @@ function buildAssigneeFilter(tasks) {
 }
 
 function setScale(mode) {
+  currentScaleMode = mode;
   if (mode === "Day") {
     gantt.config.scales = [{ unit: "day", step: 1, format: d => d.getDate() + " " + MESES_CORTO[d.getMonth()] + " " + d.getFullYear() }];
   } else if (mode === "Month") {
@@ -365,6 +367,7 @@ function initGantt() {
   ];
   gantt.config.grid_width = 520;
   gantt.config.row_height = 28;
+  gantt.config.bar_height = 18;
   gantt.config.min_column_width = 50;
   gantt.config.drag_move = true;
   gantt.config.drag_resize = true;
@@ -387,18 +390,22 @@ function initGantt() {
   gantt.templates.grid_row_class = function (start, end, task) {
     return (criticalOn && criticalSet.has(task.id)) ? "row-critical" : "";
   };
-  // Capa de baselines: barra fantasma gris debajo de la barra real
-  gantt.addTaskLayer(function (task) {
-    if (!baselineOn || !task.baseline_start || !task.baseline_end) return false;
-    const sizes = gantt.getTaskPosition(task, task.baseline_start, addDaysDate(task.baseline_end, 1));
-    if (!sizes) return false;
-    const el = document.createElement("div");
-    el.className = "baseline-bar";
-    el.style.left = sizes.left + "px";
-    el.style.width = sizes.width + "px";
-    el.style.top = (sizes.top + gantt.config.task_height + 4) + "px";
-    return el;
-  });
+  // Baselines sin capas PRO: segmentos en las celdas de la línea de tiempo.
+  // La plantilla se llama por cada celda visible; si la celda cae dentro
+  // del rango de la baseline, dibuja un segmento gris debajo de la barra.
+  gantt.templates.timeline_cell_content = function (task, date) {
+    if (!baselineOn || !task.baseline_start || !task.baseline_end) return "";
+    const cellStart = date;
+    const cellEnd = currentScaleMode === "Month" ? addDaysDate(date, 7) : addDaysDate(date, 1);
+    const bStart = task.baseline_start;
+    const bEndEx = addDaysDate(task.baseline_end, 1);
+    if (bEndEx <= cellStart || bStart >= cellEnd) return "";
+    const cellMs = cellEnd - cellStart;
+    const leftPct = Math.max(0, (bStart - cellStart) / cellMs) * 100;
+    const rightPct = Math.min(100, (bEndEx - cellStart) / cellMs * 100);
+    if (rightPct <= leftPct) return "";
+    return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;'></div>";
+  };
   // Filtros
   gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
     if (filterAssignee !== "all") {
@@ -870,7 +877,7 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   .gantt_task_line.task-overdue .gantt_task_progress { background-color: #9e1b25; }
   .gantt_task_line.task-critical { border: 2px solid #d1242f; }
   .gantt_row.row-critical { font-weight: 600; }
-  .baseline-bar { position: absolute; height: 6px; background: #8a94a6; opacity: 0.55; border-radius: 3px; z-index: 0; }
+  .baseline-cell { display: block; height: 6px; margin-top: 21px; background: #8a94a6; opacity: 0.55; border-radius: 3px; }
   .gantt_marker.today-marker { background-color: rgba(209,36,47,.12); }
   .gantt_marker.today-marker .gantt_marker_content { color: #d1242f; font-size: 12px; }
 </style>
@@ -915,6 +922,7 @@ const DATA = ${dataJson};
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const MESES_CORTO = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 const criticalIds = new Set(DATA.critical || []);
+let currentScaleMode = "Week";
 let criticalOn = false;
 let baselineOn = false;
 let filterAssignee = "all";
@@ -939,6 +947,7 @@ gantt.config.columns = [
 ];
 gantt.config.grid_width = 520;
 gantt.config.row_height = 28;
+gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
 gantt.config.drag_move = false;
 gantt.config.drag_resize = false;
@@ -956,17 +965,19 @@ gantt.templates.rightside_text = function (start, end, task) { return task.assig
 gantt.templates.grid_row_class = function (start, end, task) {
   return (criticalOn && criticalIds.has(task.id)) ? "row-critical" : "";
 };
-gantt.addTaskLayer(function (task) {
-  if (!baselineOn || !task.baseline_start || !task.baseline_end) return false;
-  const sizes = gantt.getTaskPosition(task, task.baseline_start, addDaysDate(task.baseline_end, 1));
-  if (!sizes) return false;
-  const el = document.createElement("div");
-  el.className = "baseline-bar";
-  el.style.left = sizes.left + "px";
-  el.style.width = sizes.width + "px";
-  el.style.top = (sizes.top + gantt.config.task_height + 4) + "px";
-  return el;
-});
+gantt.templates.timeline_cell_content = function (task, date) {
+  if (!baselineOn || !task.baseline_start || !task.baseline_end) return "";
+  const cellStart = date;
+  const cellEnd = currentScaleMode === "Month" ? addDaysDate(date, 7) : addDaysDate(date, 1);
+  const bStart = task.baseline_start;
+  const bEndEx = addDaysDate(task.baseline_end, 1);
+  if (bEndEx <= cellStart || bStart >= cellEnd) return "";
+  const cellMs = cellEnd - cellStart;
+  const leftPct = Math.max(0, (bStart - cellStart) / cellMs) * 100;
+  const rightPct = Math.min(100, (bEndEx - cellStart) / cellMs * 100);
+  if (rightPct <= leftPct) return "";
+  return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;'></div>";
+};
 gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
   if (filterAssignee !== "all") {
     if (filterAssignee === "Sin asignar") { if (task.assignees.length) return false; }
@@ -977,6 +988,7 @@ gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
   return true;
 });
 function setScale(mode) {
+  currentScaleMode = mode;
   if (mode === "Day") {
     gantt.config.scales = [{ unit: "day", step: 1, format: function (d) { return d.getDate() + " " + MESES_CORTO[d.getMonth()] + " " + d.getFullYear(); } }];
   } else if (mode === "Month") {
