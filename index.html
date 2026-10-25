@@ -129,9 +129,11 @@ function buildTasks(issues) {
     let cls = "bar-open";
     if (i.state === "closed") cls = "bar-closed";
     else if (end < today) cls = "bar-overdue";
+    const assignees = (i.assignees || []).map(a => "@" + a.login);
+    const who = assignees.length ? assignees.join(", ") : "Sin asignar";
     return {
       id: String(i.number),
-      name: i.title + " (#" + i.number + ")",
+      name: i.title + " (#" + i.number + ") · " + who,
       start: start,
       end: end,
       progress: parseProgress(body, i.state),
