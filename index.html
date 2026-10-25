@@ -55,6 +55,9 @@
     <span><span class="swatch" style="background:#d1242f;"></span>Atrasada (fecha pasada, issue abierto)</span>
   </span>
   <span id="meta" style="font-size:13px;"></span>
+  <button id="exportBtn" class="secondary">Exportar HTML</button>
+  <button id="shareBtn" class="secondary">Compartir enlace</button>
+  <span id="shareMsg" style="font-size:13px;"></span>
 </div>
 
 <div id="status">Escribe tu token y pulsa «Cargar Gantt».</div>
@@ -68,6 +71,7 @@ const REPO = "JaredJomar/ARCA";
 const $ = s => document.querySelector(s);
 let gantt = null;
 let currentMode = "Week";
+let currentTasks = [];
 
 function setStatus(msg, isError) {
   const el = $("#status");
@@ -146,6 +150,7 @@ function buildTasks(issues) {
 }
 
 function render(tasks) {
+  currentTasks = tasks;
   $("#wrap").style.display = "block";
   $("#controls").style.display = "flex";
   const svg = $("#gantt");
@@ -194,6 +199,109 @@ document.querySelectorAll(".viewbtn").forEach(btn => {
 
 const saved = localStorage.getItem("arca_gantt_token");
 if (saved) { $("#token").value = saved; load(); }
+
+const SHARED_URL = "https://jaredjomar.github.io/ARCA-gantt/shared.html";
+
+function buildStandaloneHTML(tasks, stamp) {
+  const tasksJson = JSON.stringify(tasks).replace(/</g, "\\u003c");
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCA — Gantt (vista compartida)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background: #f6f8fa; color: #24292f; }
+  header { background: #0d2136; color: #fff; padding: 16px 20px; }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; font-size: 13px; opacity: .85; }
+  .panel { background: #fff; border-bottom: 1px solid #d0d7de; padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button { padding: 8px 14px; border: 1px solid #1f6feb; background: #1f6feb; color: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.secondary { background: #fff; color: #24292f; border-color: #d0d7de; }
+  button.secondary.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
+  .legend { display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; }
+  .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .chart-wrap { overflow-x: auto; background: #fff; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; }
+  .gantt .bar-open .bar { fill: #9ec1e8; }
+  .gantt .bar-open .bar-progress { fill: #1f6feb; }
+  .gantt .bar-closed .bar { fill: #cdeeda; }
+  .gantt .bar-closed .bar-progress { fill: #2da44e; }
+  .gantt .bar-overdue .bar { fill: #f0b3ae; }
+  .gantt .bar-overdue .bar-progress { fill: #d1242f; }
+  .gantt .grid-header { fill: #f6f8fa; }
+  .details { font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ARCA — Gantt clásico (vista compartida)</h1>
+  <p>Datos al ${stamp}. No requiere token ni acceso al repo.</p>
+</header>
+<div class="panel">
+  <strong style="font-size:14px;">Vista:</strong>
+  <button class="secondary viewbtn" data-mode="Day">Día</button>
+  <button class="secondary viewbtn active" data-mode="Week">Semana</button>
+  <button class="secondary viewbtn" data-mode="Month">Mes</button>
+  <span class="legend">
+    <span><span class="swatch" style="background:#1f6feb;"></span>Abierta</span>
+    <span><span class="swatch" style="background:#2da44e;"></span>Completada (issue cerrado)</span>
+    <span><span class="swatch" style="background:#d1242f;"></span>Atrasada (fecha pasada, issue abierto)</span>
+  </span>
+  <span id="meta" style="font-size:13px;"></span>
+</div>
+<div class="chart-wrap">
+  <svg id="gantt"></svg>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"><\/script>
+<script>
+const tasks = ${tasksJson};
+let gantt = null;
+let currentMode = "Week";
+gantt = new Gantt("#gantt", tasks, { view_mode: currentMode, language: "es", popup_trigger: "click" });
+const open = tasks.filter(t => t.custom_class !== "bar-closed").length;
+document.getElementById("meta").textContent = tasks.length + " tareas · " + (tasks.length - open) + " completadas · " + open + " abiertas";
+document.querySelectorAll(".viewbtn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".viewbtn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentMode = btn.dataset.mode;
+    if (gantt) gantt.change_view_mode(currentMode);
+  });
+});
+<\/script>
+</body>
+</html>`;
+}
+
+function exportStandalone() {
+  if (!currentTasks.length) { setStatus("Primero carga el Gantt.", true); return; }
+  const stamp = new Date().toLocaleString("es-PR");
+  const page = buildStandaloneHTML(currentTasks, stamp);
+  const blob = new Blob([page], { type: "text/html" });
+  const a = document.createElement("a");
+  const d = new Date();
+  const ymd = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  a.href = URL.createObjectURL(blob);
+  a.download = "ARCA_Gantt_Export_" + ymd + ".html";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  $("#shareMsg").textContent = "Exportación descargada (" + currentTasks.length + " tareas, datos al " + stamp + ").";
+}
+
+async function shareLink() {
+  const msg = $("#shareMsg");
+  try {
+    await navigator.clipboard.writeText(SHARED_URL);
+    msg.textContent = "Enlace copiado. Quien lo abra ve la vista compartida, sin token.";
+  } catch (e) {
+    msg.textContent = "Copia este enlace: " + SHARED_URL;
+  }
+  window.open(SHARED_URL, "_blank");
+}
+
+$("#exportBtn").addEventListener("click", exportStandalone);
+$("#shareBtn").addEventListener("click", shareLink);
 </script>
 </body>
 </html>
