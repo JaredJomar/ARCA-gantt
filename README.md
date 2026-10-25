@@ -112,6 +112,16 @@ dependencias, el visor avisa y no calcula la ruta.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
   atrasadas y días por asignado (una tarea con varios asignados
   cuenta para cada uno).
+- La columna del día actual se tiñe de rojo claro, para ubicar
+  hoy de un vistazo. La edición Community no trae marcadores,
+  así que el tinte se aplica con una clase de celda.
+- La tabla arranca con 660 px de ancho y cada columna se puede
+  ensanchar arrastrando el borde derecho de su encabezado. La
+  edición Community no incluye resize de columnas, así que está
+  implementado a mano. Al pasar el cursor sobre el nombre de una
+  tarea se ve el nombre completo.
+- La gráfica ocupa el alto de la pantalla (menos los paneles),
+  para ver más filas sin desplazar.
 - "Imprimir / PDF" usa la impresión del navegador. Para una
   copia completa y portátil, mejor usar "Exportar HTML".
 
@@ -150,4 +160,7 @@ entero: no hay tableros ágiles, reuniones, registro de tiempo,
 costos ni notificaciones, y no hay colaboración en tiempo
 real (los cambios se ven al recargar). Tampoco se pueden crear
 issues nuevos desde el visor; solo se editan fechas, progreso
-y dependencias de los que ya existen.
+y dependencias de los que ya existen. Algunas funciones de
+DHTMLX son PRO (marcadores, capas y resize de columnas): el
+visor las implementa a mano con código propio para seguir
+siendo gratis.
