@@ -364,9 +364,9 @@ function initGantt() {
     { name: "assignee", label: "Asignado", width: 120, template: t => t.assignee },
     { name: "start", label: "Inicio", width: 95, template: t => fmtDate(t.start_date) },
     { name: "end", label: "Fin", width: 95, template: t => fmtDate(t.inclusiveEnd) },
-    { name: "progress", label: "%", width: 45, template: t => Math.round(t.progress * 100) + "%" }
+    { name: "progress", label: "%", width: 60, template: t => Math.round(t.progress * 100) + "%" }
   ];
-  gantt.config.grid_width = 660;
+  gantt.config.grid_width = 675;
   gantt.config.row_height = 28;
   gantt.config.bar_height = 18;
   gantt.config.min_column_width = 50;
@@ -1024,9 +1024,9 @@ gantt.config.columns = [
   { name: "assignee", label: "Asignado", width: 120, template: function (t) { return t.assignee; } },
   { name: "start", label: "Inicio", width: 95, template: function (t) { return fmtDate(t.start_date); } },
   { name: "end", label: "Fin", width: 95, template: function (t) { return fmtDate(t.inclusiveEnd); } },
-  { name: "progress", label: "%", width: 45, template: function (t) { return Math.round(t.progress * 100) + "%"; } }
+  { name: "progress", label: "%", width: 60, template: function (t) { return Math.round(t.progress * 100) + "%"; } }
 ];
-gantt.config.grid_width = 660;
+gantt.config.grid_width = 675;
 gantt.config.row_height = 28;
 gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
