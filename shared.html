@@ -34,7 +34,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 25 de octubre de 2026, 21:11. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 25 de octubre de 2026, 21:16. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -94,9 +94,9 @@ gantt.config.columns = [
   { name: "assignee", label: "Asignado", width: 120, template: function (t) { return t.assignee; } },
   { name: "start", label: "Inicio", width: 95, template: function (t) { return fmtDate(t.start_date); } },
   { name: "end", label: "Fin", width: 95, template: function (t) { return fmtDate(t.inclusiveEnd); } },
-  { name: "progress", label: "%", width: 45, template: function (t) { return Math.round(t.progress * 100) + "%"; } }
+  { name: "progress", label: "%", width: 60, template: function (t) { return Math.round(t.progress * 100) + "%"; } }
 ];
-gantt.config.grid_width = 660;
+gantt.config.grid_width = 675;
 gantt.config.row_height = 28;
 gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
