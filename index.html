@@ -871,6 +871,7 @@ function applyFilters() {
   filterStatus = $("#fStatus").value;
   filterText = $("#fSearch").value.trim().toLowerCase();
   gantt.refreshData();
+  fitGanttHeight();
 }
 function renderWorkload() {
   const map = new Map();
@@ -1219,6 +1220,7 @@ function applyFilters() {
   filterStatus = document.getElementById("fStatus").value;
   filterText = document.getElementById("fSearch").value.trim().toLowerCase();
   gantt.refreshData();
+  fitGanttHeight();
 }
 (function buildAssignees() {
   const sel = document.getElementById("fAssignee");
