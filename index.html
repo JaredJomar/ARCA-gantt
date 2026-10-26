@@ -22,7 +22,7 @@
   .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
   #status { padding: 10px 20px; font-size: 14px; }
   #status.error { color: #b42318; }
-  #gantt_here { width: auto; height: calc(100vh - 240px); min-height: 480px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  #gantt_here { width: auto; height: calc(100vh - 240px); min-height: 0; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
   /* Colores de barras por estado (DHTMLX) */
   .gantt_task_line.task-open { background-color: #1f6feb; border-color: #1f6feb; }
   .gantt_task_line.task-open .gantt_task_progress { background-color: #0d4ea6; }
@@ -271,7 +271,7 @@ function buildData(issues) {
     const logins = (i.assignees || []).map(a => a.login);
     const t = {
       id: String(i.number),
-      text: i.title + " (#" + i.number + ")",
+      text: "#" + i.number + " " + i.title,
       start_date: start,
       end_date: endEx,
       inclusiveEnd: inclEnd,
@@ -381,7 +381,7 @@ function initGantt() {
     if (criticalOn && criticalSet.has(task.id)) c += " task-critical";
     return c;
   };
-  gantt.templates.task_text = function () { return ""; };
+  gantt.templates.task_text = function (start, end, task) { return "#" + task.id; };
   gantt.templates.rightside_text = function (start, end, task) { return task.assignee; };
   gantt.templates.tooltip_text = function (start, end, task) {
     return "<b>" + esc(task.text) + "</b><br>Asignado: " + esc(task.assignee) +
@@ -592,6 +592,9 @@ async function load() {
     suppressLinkEvents = true;
     gantt.clearAll();
     gantt.parse({ data: built.tasks, links: built.links });
+gantt.attachEvent("onGanttRender", fitGanttHeight);
+window.addEventListener("resize", fitGanttHeight);
+fitGanttHeight();
     suppressLinkEvents = false;
     const bl = await loadBaseline();
     if (bl) currentBaseline = bl;
@@ -845,6 +848,24 @@ function computeCriticalPath() {
   return true;
 }
 
+function fitGanttHeight() {
+  var root = document.getElementById("gantt_here");
+  if (!root || typeof gantt === "undefined") return;
+  var visible = 0;
+  gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
+  var scaleEl = root.querySelector(".gantt_grid_scale");
+  var scaleH = scaleEl ? scaleEl.offsetHeight : 36;
+  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
+  var top = root.getBoundingClientRect().top;
+  var maxH = window.innerHeight - top - 24;
+  if (maxH < 200) maxH = 200;
+  var h = Math.max(200, Math.min(needed, maxH));
+  var cur = parseInt(root.style.height, 10);
+  if (!cur || Math.abs(cur - h) > 1) {
+    root.style.height = h + "px";
+    gantt.setSizes();
+  }
+}
 function applyFilters() {
   filterAssignee = $("#fAssignee").value;
   filterStatus = $("#fStatus").value;
@@ -948,7 +969,7 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   button.secondary.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
   .legend { display: flex; gap: 16px; font-size: 13px; align-items: center; flex-wrap: wrap; }
   .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
-  #gantt_here { width: auto; height: calc(100vh - 240px); min-height: 480px; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
+  #gantt_here { width: auto; height: calc(100vh - 240px); min-height: 0; margin: 14px 20px 24px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; }
   .gantt_task_line.task-open { background-color: #1f6feb; border-color: #1f6feb; }
   .gantt_task_line.task-open .gantt_task_progress { background-color: #0d4ea6; }
   .gantt_task_line.task-closed { background-color: #2da44e; border-color: #2da44e; }
@@ -1041,7 +1062,7 @@ gantt.templates.task_class = function (start, end, task) {
   if (criticalOn && criticalIds.has(task.id)) c += " task-critical";
   return c;
 };
-gantt.templates.task_text = function () { return ""; };
+gantt.templates.task_text = function (start, end, task) { return "#" + task.id; };
 gantt.templates.rightside_text = function (start, end, task) { return task.assignee; };
 gantt.templates.grid_row_class = function (start, end, task) {
   return (criticalOn && criticalIds.has(task.id)) ? "row-critical" : "";
@@ -1175,6 +1196,24 @@ function updateMeta() {
   if (criticalOn) msg += " · " + criticalIds.size + " en camino crítico";
   document.getElementById("meta").textContent = msg;
 }
+function fitGanttHeight() {
+  var root = document.getElementById("gantt_here");
+  if (!root || typeof gantt === "undefined") return;
+  var visible = 0;
+  gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
+  var scaleEl = root.querySelector(".gantt_grid_scale");
+  var scaleH = scaleEl ? scaleEl.offsetHeight : 36;
+  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
+  var top = root.getBoundingClientRect().top;
+  var maxH = window.innerHeight - top - 24;
+  if (maxH < 200) maxH = 200;
+  var h = Math.max(200, Math.min(needed, maxH));
+  var cur = parseInt(root.style.height, 10);
+  if (!cur || Math.abs(cur - h) > 1) {
+    root.style.height = h + "px";
+    gantt.setSizes();
+  }
+}
 function applyFilters() {
   filterAssignee = document.getElementById("fAssignee").value;
   filterStatus = document.getElementById("fStatus").value;
@@ -1200,6 +1239,9 @@ setScale("Week");
 gantt.init("gantt_here");
 enableColumnResize();
 gantt.parse({ data: DATA.tasks, links: DATA.links });
+gantt.attachEvent("onGanttRender", fitGanttHeight);
+window.addEventListener("resize", fitGanttHeight);
+fitGanttHeight();
 updateMeta();
 document.querySelectorAll(".viewbtn").forEach(function (btn) {
   btn.addEventListener("click", function () {
