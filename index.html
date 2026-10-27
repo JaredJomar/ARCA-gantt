@@ -80,7 +80,7 @@
   </label>
   <input type="text" id="fSearch" placeholder="Buscar tarea o #número">
   <label><input type="checkbox" id="groupPerson"> Agrupar por persona</label>
-  <label><input type="checkbox" id="editToggle" checked> Edición</label>
+  <label><input type="checkbox" id="editToggle"> Edición</label>
   <label><input type="checkbox" id="autoMove"> Mover dependientes</label>
   <button id="criticalBtn" class="secondary">Camino crítico</button>
   <button id="saveBaselineBtn" class="secondary">Guardar baseline</button>
@@ -373,6 +373,7 @@ function initGantt() {
   gantt.config.drag_move = true;
   gantt.config.drag_resize = true;
   gantt.config.drag_progress = true;
+  gantt.config.readonly = true;
   gantt.config.drag_links = true;
   gantt.config.details_on_dblclick = false;
   gantt.config.show_progress = true;
