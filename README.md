@@ -141,7 +141,7 @@ dependencias, el visor avisa y no calcula la ruta.
   para ubicar hoy de un vistazo, y los fines de semana se
   sombrean. La edición Community no trae marcadores, así que
   la línea se logra con una sombra interior en cada celda.
-- La tabla arranca con 835 px de ancho y cada columna se puede
+- La tabla arranca con 885 px de ancho y cada columna se puede
   ensanchar arrastrando el borde derecho de su encabezado. La
   edición Community no incluye resize de columnas, así que está
   implementado a mano. Al pasar el cursor sobre el nombre de una
