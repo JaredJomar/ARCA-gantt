@@ -66,8 +66,8 @@ las líneas que cambia el visor, el resto del cuerpo no se toca).
 - Si el guardado falla, la barra vuelve a su fecha anterior y
   se muestra el error. Si el token es de solo lectura, el visor
   lo dice y revierte el cambio.
-- Casilla "Edición": apaga toda edición y deja el visor en modo
-  solo lectura.
+- Casilla "Edición": viene apagada por defecto; al marcarla se
+  activa la edición.
 - Casilla "Mover dependientes" (apagada por defecto): al mover
   una barra, desplaza también a sus sucesores fin-a-inicio para
   que no empiecen antes de que termine el predecesor, y pide
@@ -75,12 +75,14 @@ las líneas que cambia el visor, el resto del cuerpo no se toca).
 
 ## Tokens
 
-- Lectura: basta para ver el visor. Un token fine-grained con
-  el repo JaredJomar/ARCA en lectura de Issues es suficiente.
-- Escritura: para editar. Token fine-grained con el repo
-  JaredJomar/ARCA en lectura y escritura de Issues. Para guardar
-  baselines, el mismo token debe tener además el repo
-  JaredJomar/ARCA-gantt en lectura y escritura de Contents.
+- Colaboradores: token clásico con scope repo. En GitHub:
+  Settings, Developer settings, Personal access tokens,
+  Tokens (classic), Generate new token (classic), marca repo.
+  El fine-grained no incluye repos de otra cuenta personal,
+  por eso no sirve para ARCA si no eres el dueño.
+- Dueño del repo: fine-grained con el repo JaredJomar/ARCA en
+  lectura de Issues para ver, o en lectura y escritura para
+  editar.
 - No reutilizar para el navegador el token de automatización
   que usa el cron diario: si se revoca uno, el otro sigue
   funcionando. Un token expuesto se revoca en un clic desde
