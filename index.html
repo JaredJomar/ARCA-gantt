@@ -662,6 +662,22 @@ fitGanttHeight();
     if (bl) currentBaseline = bl;
     afterDataLoad();
     updateHistoryButtons();
+    if (!window.__arcaScrolledToWeek) {
+      (function () {
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        var monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+        var min = null, max = null;
+        gantt.eachTask(function (t) {
+          if (t.start_date && (!min || t.start_date < min)) min = t.start_date;
+          if (t.end_date && (!max || t.end_date > max)) max = t.end_date;
+        });
+        var target = monday;
+        if (min && target < min) target = min;
+        if (max && target > max) target = max;
+        gantt.showDate(target);
+      })();
+      window.__arcaScrolledToWeek = true;
+    }
     setStatus("Actualizado: " + new Date().toLocaleString("es-PR") + ". Clic en una barra abre su issue. Arrastra para editar (necesitas token con escritura).");
   } catch (e) {
     setStatus(e.message, true);
@@ -1671,6 +1687,19 @@ gantt.parse({ data: DATA.tasks, links: DATA.links });
 gantt.attachEvent("onGanttRender", fitGanttHeight);
 window.addEventListener("resize", fitGanttHeight);
 fitGanttHeight();
+(function () {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  var min = null, max = null;
+  gantt.eachTask(function (t) {
+    if (t.start_date && (!min || t.start_date < min)) min = t.start_date;
+    if (t.end_date && (!max || t.end_date > max)) max = t.end_date;
+  });
+  var target = monday;
+  if (min && target < min) target = min;
+  if (max && target > max) target = max;
+  gantt.showDate(target);
+})();
 updateMeta();
 document.querySelectorAll(".viewbtn").forEach(function (btn) {
   btn.addEventListener("click", function () {
