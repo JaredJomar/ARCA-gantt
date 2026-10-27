@@ -411,10 +411,10 @@ function initGantt() {
     { name: "start", label: "Inicio", width: 95, template: t => fmtDate(t.start_date) },
     { name: "end", label: "Fin", width: 95, template: t => fmtDate(t.inclusiveEnd) },
     { name: "progress", label: "%", width: 60, template: t => Math.round(t.progress * 100) + "%" },
-    { name: "varStart", label: "Desv. ini", width: 55, template: t => varianceText(t, "start") },
-    { name: "varEnd", label: "Desv. fin", width: 55, template: t => varianceText(t, "end") }
+    { name: "varStart", label: "Desv. ini", width: 80, template: t => varianceText(t, "start") },
+    { name: "varEnd", label: "Desv. fin", width: 80, template: t => varianceText(t, "end") }
   ];
-  gantt.config.grid_width = 835;
+  gantt.config.grid_width = 885;
   gantt.config.row_height = 28;
   gantt.config.bar_height = 18;
   gantt.config.min_column_width = 50;
@@ -1467,10 +1467,10 @@ gantt.config.columns = [
   { name: "start", label: "Inicio", width: 95, template: function (t) { return fmtDate(t.start_date); } },
   { name: "end", label: "Fin", width: 95, template: function (t) { return fmtDate(t.inclusiveEnd); } },
   { name: "progress", label: "%", width: 60, template: function (t) { return Math.round(t.progress * 100) + "%"; } },
-  { name: "varStart", label: "Desv. ini", width: 55, template: function (t) { return varianceText(t, "start"); } },
-  { name: "varEnd", label: "Desv. fin", width: 55, template: function (t) { return varianceText(t, "end"); } }
+  { name: "varStart", label: "Desv. ini", width: 80, template: function (t) { return varianceText(t, "start"); } },
+  { name: "varEnd", label: "Desv. fin", width: 80, template: function (t) { return varianceText(t, "end"); } }
 ];
-gantt.config.grid_width = 835;
+gantt.config.grid_width = 885;
 gantt.config.row_height = 28;
 gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
