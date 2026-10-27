@@ -60,9 +60,9 @@ las líneas que cambia el visor, el resto del cuerpo no se toca).
 - Al crear o quitar un enlace se actualiza el texto `Depende de:`
   del issue y también la relación nativa "Blocked by" en GitHub,
   para que ninguna de las dos fuentes quede vieja.
-- El texto del issue solo guarda el par de issues, no el tipo
-  de enlace: un enlace creado como SS, FF o SF se guarda como
-  dependencia y al recargar vuelve como fin-a-inicio (FS).
+- El texto `Depende de:` guarda también el tipo de enlace
+  (SS, FF o SF); sin paréntesis es fin-a-inicio (FS). El camino
+  crítico y "Mover dependientes" solo usan enlaces fin-a-inicio.
 - Si el guardado falla, la barra vuelve a su fecha anterior y
   se muestra el error. Si el token es de solo lectura, el visor
   lo dice y revierte el cambio.
@@ -72,6 +72,22 @@ las líneas que cambia el visor, el resto del cuerpo no se toca).
   una barra, desplaza también a sus sucesores fin-a-inicio para
   que no empiecen antes de que termine el predecesor, y pide
   confirmación con la cantidad de tareas que se moverán.
+- "Deshacer" y "Rehacer" (botones o Ctrl+Z / Ctrl+Y) revierten
+  movimientos, cambios de progreso y enlaces creados o quitados.
+  No cubren la creación de tareas.
+- "Nueva tarea" crea un issue nuevo con título, asignado y
+  fechas (requiere token con escritura).
+
+## Jerarquía y WBS
+
+Los sub-issues de GitHub se muestran anidados bajo su tarea
+padre (el mapa padre-hijo vive en `subissues.json` en este
+repo). La columna "WBS" numera la jerarquía (1, 1.1, 1.2, 2).
+Las fechas y el progreso de una tarea padre se calculan de
+sus hijas (inicio mínimo, fin máximo, progreso ponderado por
+duración), así que una tarea padre no se puede arrastrar: hay
+que mover sus subtareas. La vista compartida y la exportación
+muestran la misma jerarquía.
 
 ## Tokens
 
@@ -92,7 +108,8 @@ las líneas que cambia el visor, el resto del cuerpo no se toca).
 
 Cálculo propio en JavaScript, sin la edición PRO de DHTMLX:
 orden topológico sobre el grafo de dependencias y ruta más
-larga, todo fin-a-inicio. El botón "Camino crítico" resalta las
+larga, solo con enlaces fin-a-inicio (FS). Los enlaces SS, FF
+y SF no entran en el cálculo. El botón "Camino crítico" resalta las
 tareas de la ruta con un borde rojo. Si hay un ciclo en las
 dependencias, el visor avisa y no calcula la ruta.
 
@@ -112,12 +129,19 @@ dependencias, el visor avisa y no calcula la ruta.
   y búsqueda por texto o número de issue.
 - "Agrupar por persona" ordena las filas por asignado.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
-  atrasadas y días por asignado (una tarea con varios asignados
-  cuenta para cada uno).
-- La columna del día actual se tiñe de rojo claro, para ubicar
-  hoy de un vistazo. La edición Community no trae marcadores,
-  así que el tinte se aplica con una clase de celda.
-- La tabla arranca con 660 px de ancho y cada columna se puede
+  atrasadas, días laborables y máxima simultaneidad (la mayor
+  cantidad de tareas abiertas de esa persona el mismo día) por
+  asignado (una tarea con varios asignados cuenta para cada uno).
+  Los días son laborables: lunes a viernes, sin los feriados de
+  la lista del código.
+- Las columnas "Desv. ini" y "Desv. fin" muestran en días la
+  desviación contra la baseline (+ es atraso, - es adelanto;
+  vacías si no hay baseline guardada).
+- La columna del día actual se tiñe y lleva una línea roja,
+  para ubicar hoy de un vistazo, y los fines de semana se
+  sombrean. La edición Community no trae marcadores, así que
+  la línea se logra con una sombra interior en cada celda.
+- La tabla arranca con 835 px de ancho y cada columna se puede
   ensanchar arrastrando el borde derecho de su encabezado. La
   edición Community no incluye resize de columnas, así que está
   implementado a mano. Al pasar el cursor sobre el nombre de una
@@ -135,6 +159,12 @@ dependencias, el visor avisa y no calcula la ruta.
   crítico y baseline si la hay.
 - Compartir enlace: copia el enlace a la vista compartida
   (`shared.html`).
+- Exportar CSV: descarga las tareas (número, WBS, título,
+  asignado, fechas, progreso y estado) en un archivo que abre
+  Excel.
+- Exportar Project XML: descarga las tareas, dependencias y
+  asignados en el formato XML que abre MS Project como proyecto
+  nuevo.
 
 ## Vista compartida
 
@@ -144,8 +174,9 @@ crítico, lee `baseline.json` si existe, genera `shared.html`
 con los datos incrustados y lo publica en este repo. Corre a
 diario alrededor de las 7:07 AM (hora de Puerto Rico) y solo
 publica si los datos cambiaron desde la última versión. La
-vista compartida incluye filtros, camino crítico y baseline,
-igual que la exportación, pero sin edición ni token.
+vista compartida incluye filtros, camino crítico, baseline,
+jerarquía, WBS y varianza, igual que la exportación, pero sin
+edición ni token.
 
 ## Archivos de este repo
 
@@ -160,9 +191,11 @@ igual que la exportación, pero sin edición ni token.
 Esto rivaliza con el Gantt de OpenProject, no con OpenProject
 entero: no hay tableros ágiles, reuniones, registro de tiempo,
 costos ni notificaciones, y no hay colaboración en tiempo
-real (los cambios se ven al recargar). Tampoco se pueden crear
-issues nuevos desde el visor; solo se editan fechas, progreso
-y dependencias de los que ya existen. Algunas funciones de
+real (los cambios se ven al recargar). No hay nivelación
+automática de recursos ni programación automática con
+restricciones: "Mover dependientes" solo empuja sucesores
+fin-a-inicio. No se genera .mpp binario (el formato es
+propietario); para MS Project se exporta XML. Algunas funciones de
 DHTMLX son PRO (marcadores, capas y resize de columnas): el
 visor las implementa a mano con código propio para seguir
 siendo gratis.
