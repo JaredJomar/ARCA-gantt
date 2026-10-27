@@ -176,7 +176,7 @@ diario alrededor de las 7:07 AM (hora de Puerto Rico) y solo
 publica si los datos cambiaron desde la última versión. La
 vista compartida incluye filtros, camino crítico, baseline,
 jerarquía, WBS y varianza, igual que la exportación, pero sin
-edición ni token.
+edición ni token. Al abrir, la línea de tiempo arranca en la semana actual (el lunes de esta semana); se puede desplazar horizontalmente para ver otras semanas.
 
 ## Archivos de este repo
 
