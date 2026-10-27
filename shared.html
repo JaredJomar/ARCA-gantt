@@ -35,7 +35,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 27 de octubre de 2026, 11:59. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 27 de octubre de 2026, 12:03. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -313,6 +313,19 @@ gantt.parse({ data: DATA.tasks, links: DATA.links });
 gantt.attachEvent("onGanttRender", fitGanttHeight);
 window.addEventListener("resize", fitGanttHeight);
 fitGanttHeight();
+(function () {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  var min = null, max = null;
+  gantt.eachTask(function (t) {
+    if (t.start_date && (!min || t.start_date < min)) min = t.start_date;
+    if (t.end_date && (!max || t.end_date > max)) max = t.end_date;
+  });
+  var target = monday;
+  if (min && target < min) target = min;
+  if (max && target > max) target = max;
+  gantt.showDate(target);
+})();
 updateMeta();
 document.querySelectorAll(".viewbtn").forEach(function (btn) {
   btn.addEventListener("click", function () {
