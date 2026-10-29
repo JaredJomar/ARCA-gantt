@@ -126,7 +126,9 @@ dependencias, el visor avisa y no calcula la ruta.
 ## Filtros y vistas
 
 - Filtro por asignado, por estado (abierta, cerrada, atrasada)
-  y búsqueda por texto o número de issue.
+  y búsqueda por texto o número de issue. Buscar un número
+  (con o sin #, por ejemplo 108) muestra solo ese issue; si es
+  una subtarea, su padre queda visible y abierto para que se vea.
 - "Agrupar por persona" ordena las filas por asignado.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
   atrasadas, días laborables y máxima simultaneidad (la mayor
