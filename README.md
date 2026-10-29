@@ -129,6 +129,10 @@ dependencias, el visor avisa y no calcula la ruta.
   y búsqueda por texto o número de issue. Buscar un número
   (con o sin #, por ejemplo 108) muestra solo ese issue; si es
   una subtarea, su padre queda visible y abierto para que se vea.
+- En móviles (hasta 700 px de ancho) la tabla muestra solo la
+  columna de tarea y la línea de tiempo se desplaza; pestaña
+  Gráfica con gráfica circular por persona o por estado, según
+  el filtro actual.
 - "Agrupar por persona" ordena las filas por asignado.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
   atrasadas, días laborables y máxima simultaneidad (la mayor
