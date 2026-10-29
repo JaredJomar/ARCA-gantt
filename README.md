@@ -131,8 +131,12 @@ dependencias, el visor avisa y no calcula la ruta.
   una subtarea, su padre queda visible y abierto para que se vea.
 - En móviles (hasta 700 px de ancho) la tabla muestra solo la
   columna de tarea y la línea de tiempo se desplaza; pestaña
-  Gráfica con gráfica circular por persona o por estado, según
-  el filtro actual.
+  Gráfica con dos gráficas circulares, Técnicas y No técnicas
+  (PM), cada una por persona o por estado, según el filtro
+  actual. No técnica es PM: se detecta por palabras clave en
+  el título (planificación, sprints, checkpoints, revisiones,
+  hitos, documentación y demos, entre otras); técnica es todo
+  lo demás.
 - "Agrupar por persona" ordena las filas por asignado.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
   atrasadas, días laborables y máxima simultaneidad (la mayor
