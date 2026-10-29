@@ -44,7 +44,10 @@
 .tabbar button.active, .pie-controls button.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
 .pie-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 20px 0; }
 .pie-wrap { display: flex; gap: 24px; align-items: flex-start; padding: 16px 20px 24px; flex-wrap: wrap; }
-#pieSvg { width: 300px; max-width: 90vw; height: auto; flex: none; }
+.pie-cols { display: flex; gap: 24px; flex-wrap: wrap; }
+.pie-block { flex: 1 1 340px; }
+.pie-block h3 { margin: 16px 0 0 20px; font-size: 16px; }
+#pieSvg, #pieSvgTech, #pieSvgPM { width: 300px; max-width: 90vw; height: auto; flex: none; }
 .pie-legend { font-size: 14px; }
 .pie-legend div { margin: 5px 0; }
 @media (max-width: 700px) {
@@ -58,8 +61,9 @@
   #gantt_here { margin: 10px 8px 16px; }
   #workload { margin: 0 8px 16px; overflow-x: auto; }
   #status { padding: 8px 14px; }
-  .tabbar, .pie-controls, .pie-wrap { padding-left: 14px; padding-right: 14px; }
+  .tabbar, .pie-controls, .pie-wrap, .pie-cols { padding-left: 14px; padding-right: 14px; }
   .pie-wrap { flex-direction: column; gap: 12px; }
+  .pie-cols { flex-direction: column; }
 }
   @media print {
     header, .panel, #status, #workload { display: none !important; }
@@ -164,9 +168,21 @@
       <button class="secondary piebtn" data-pie="status">Por estado</button>
       <span id="pieMeta" style="font-size:13px;"></span>
     </div>
-    <div class="pie-wrap">
-      <svg id="pieSvg" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas"></svg>
-      <div id="pieLegend" class="pie-legend"></div>
+    <div class="pie-cols">
+      <div class="pie-block">
+        <h3>Técnicas</h3>
+        <div class="pie-wrap">
+          <svg id="pieSvgTech" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas técnicas"></svg>
+          <div id="pieLegendTech" class="pie-legend"></div>
+        </div>
+      </div>
+      <div class="pie-block">
+        <h3>No técnicas (PM)</h3>
+        <div class="pie-wrap">
+          <svg id="pieSvgPM" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas no técnicas"></svg>
+          <div id="pieLegendPM" class="pie-legend"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1372,28 +1388,21 @@ function pieColorFor(key, i, mode) {
   var palette = ["#1f6feb", "#2da44e", "#d1242f", "#9b59b6", "#e67e22", "#0ea5a5", "#8a94a6", "#d4a017"];
   return palette[i % palette.length];
 }
-function renderPie() {
-  var svg = document.getElementById("pieSvg");
-  if (!svg || typeof gantt === "undefined") return;
-  var activeBtn = document.querySelector(".piebtn.active");
-  var mode = activeBtn ? activeBtn.dataset.pie : "person";
-  var groups = {}, total = 0;
-  gantt.eachTask(function (t) {
-    if (typeof taskMatchesFilters === "function" && !taskMatchesFilters(t)) return;
-    var key;
-    if (mode === "status") key = t.statusCls === "closed" ? "Cerrada" : (t.statusCls === "overdue" ? "Atrasada" : "Abierta");
-    else key = (t.assignees && t.assignees.length) ? t.assignees.join(" + ") : "Sin asignar";
-    groups[key] = (groups[key] || 0) + 1; total++;
-  });
-  var meta = document.getElementById("pieMeta");
-  if (meta) meta.textContent = total ? (total + " tareas según el filtro actual") : "Sin tareas con el filtro actual";
+var PM_KEYS = ["kickoff", "questionnaire", "investigat", "sprint", "planning", "workload", "backlog", "risk", "wbs", "raci", "scope", "requirements", "acceptance", "traceability", "checkpoint", "milestone", "demonstration", "feedback", "change control", "test-evidence", "transfer", "client handoff"];
+function isPMTask(t) {
+  var s = (t.text || "").toLowerCase();
+  return PM_KEYS.some(function (k) { return s.indexOf(k) !== -1; });
+}
+function drawPie(svgId, legendId, groups, total, mode) {
+  var svg = document.getElementById(svgId);
+  var legend = document.getElementById(legendId);
+  if (!svg) return;
+  if (!total) { svg.innerHTML = ""; if (legend) legend.innerHTML = ""; return; }
   var keys = Object.keys(groups);
   if (mode === "status") keys = ["Abierta", "Cerrada", "Atrasada"].filter(function (k) { return groups[k]; });
   else keys.sort(function (a, b) {
     if (a === "Sin asignar") return 1; if (b === "Sin asignar") return -1; return a.localeCompare(b);
   });
-  var legend = document.getElementById("pieLegend");
-  if (!total) { svg.innerHTML = ""; if (legend) legend.innerHTML = ""; return; }
   var cx = 150, cy = 150, r = 120, start = -Math.PI / 2, parts = [];
   function polar(a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
   if (keys.length === 1) {
@@ -1417,6 +1426,24 @@ function renderPie() {
       return '<div><span class="swatch" style="background:' + pieColorFor(k, i, mode) + ';"></span>' + k + ' ' + groups[k] + ' (' + pct + '%)</div>';
     }).join("");
   }
+}
+function renderPie() {
+  if (typeof gantt === "undefined") return;
+  var activeBtn = document.querySelector(".piebtn.active");
+  var mode = activeBtn ? activeBtn.dataset.pie : "person";
+  var groupsTech = {}, groupsPM = {}, totalTech = 0, totalPM = 0;
+  gantt.eachTask(function (t) {
+    if (typeof taskMatchesFilters === "function" && !taskMatchesFilters(t)) return;
+    var key;
+    if (mode === "status") key = t.statusCls === "closed" ? "Cerrada" : (t.statusCls === "overdue" ? "Atrasada" : "Abierta");
+    else key = (t.assignees && t.assignees.length) ? t.assignees.join(" + ") : "Sin asignar";
+    if (isPMTask(t)) { groupsPM[key] = (groupsPM[key] || 0) + 1; totalPM++; }
+    else { groupsTech[key] = (groupsTech[key] || 0) + 1; totalTech++; }
+  });
+  var meta = document.getElementById("pieMeta");
+  if (meta) meta.textContent = (totalTech + totalPM) ? (totalTech + " técnicas y " + totalPM + " no técnicas (PM) según el filtro actual") : "Sin tareas con el filtro actual";
+  drawPie("pieSvgTech", "pieLegendTech", groupsTech, totalTech, mode);
+  drawPie("pieSvgPM", "pieLegendPM", groupsPM, totalPM, mode);
 }
 function showTab(name) {
   var g = document.getElementById("ganttTab"), p = document.getElementById("pieTab");
@@ -1575,7 +1602,10 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
 .tabbar button.active, .pie-controls button.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
 .pie-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 20px 0; }
 .pie-wrap { display: flex; gap: 24px; align-items: flex-start; padding: 16px 20px 24px; flex-wrap: wrap; }
-#pieSvg { width: 300px; max-width: 90vw; height: auto; flex: none; }
+.pie-cols { display: flex; gap: 24px; flex-wrap: wrap; }
+.pie-block { flex: 1 1 340px; }
+.pie-block h3 { margin: 16px 0 0 20px; font-size: 16px; }
+#pieSvg, #pieSvgTech, #pieSvgPM { width: 300px; max-width: 90vw; height: auto; flex: none; }
 .pie-legend { font-size: 14px; }
 .pie-legend div { margin: 5px 0; }
 @media (max-width: 700px) {
@@ -1589,8 +1619,9 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   #gantt_here { margin: 10px 8px 16px; }
   #workload { margin: 0 8px 16px; overflow-x: auto; }
   #status { padding: 8px 14px; }
-  .tabbar, .pie-controls, .pie-wrap { padding-left: 14px; padding-right: 14px; }
+  .tabbar, .pie-controls, .pie-wrap, .pie-cols { padding-left: 14px; padding-right: 14px; }
   .pie-wrap { flex-direction: column; gap: 12px; }
+  .pie-cols { flex-direction: column; }
 }
 </style>
 </head>
@@ -1640,9 +1671,21 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
     <button class="secondary piebtn" data-pie="status">Por estado</button>
     <span id="pieMeta" style="font-size:13px;"></span>
   </div>
-  <div class="pie-wrap">
-    <svg id="pieSvg" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas"></svg>
-    <div id="pieLegend" class="pie-legend"></div>
+  <div class="pie-cols">
+    <div class="pie-block">
+      <h3>Técnicas</h3>
+      <div class="pie-wrap">
+        <svg id="pieSvgTech" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas técnicas"></svg>
+        <div id="pieLegendTech" class="pie-legend"></div>
+      </div>
+    </div>
+    <div class="pie-block">
+      <h3>No técnicas (PM)</h3>
+      <div class="pie-wrap">
+        <svg id="pieSvgPM" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas no técnicas"></svg>
+        <div id="pieLegendPM" class="pie-legend"></div>
+      </div>
+    </div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.js"><\/script>
@@ -1918,28 +1961,21 @@ function pieColorFor(key, i, mode) {
   var palette = ["#1f6feb", "#2da44e", "#d1242f", "#9b59b6", "#e67e22", "#0ea5a5", "#8a94a6", "#d4a017"];
   return palette[i % palette.length];
 }
-function renderPie() {
-  var svg = document.getElementById("pieSvg");
-  if (!svg || typeof gantt === "undefined") return;
-  var activeBtn = document.querySelector(".piebtn.active");
-  var mode = activeBtn ? activeBtn.dataset.pie : "person";
-  var groups = {}, total = 0;
-  gantt.eachTask(function (t) {
-    if (typeof taskMatchesFilters === "function" && !taskMatchesFilters(t)) return;
-    var key;
-    if (mode === "status") key = t.statusCls === "closed" ? "Cerrada" : (t.statusCls === "overdue" ? "Atrasada" : "Abierta");
-    else key = (t.assignees && t.assignees.length) ? t.assignees.join(" + ") : "Sin asignar";
-    groups[key] = (groups[key] || 0) + 1; total++;
-  });
-  var meta = document.getElementById("pieMeta");
-  if (meta) meta.textContent = total ? (total + " tareas según el filtro actual") : "Sin tareas con el filtro actual";
+var PM_KEYS = ["kickoff", "questionnaire", "investigat", "sprint", "planning", "workload", "backlog", "risk", "wbs", "raci", "scope", "requirements", "acceptance", "traceability", "checkpoint", "milestone", "demonstration", "feedback", "change control", "test-evidence", "transfer", "client handoff"];
+function isPMTask(t) {
+  var s = (t.text || "").toLowerCase();
+  return PM_KEYS.some(function (k) { return s.indexOf(k) !== -1; });
+}
+function drawPie(svgId, legendId, groups, total, mode) {
+  var svg = document.getElementById(svgId);
+  var legend = document.getElementById(legendId);
+  if (!svg) return;
+  if (!total) { svg.innerHTML = ""; if (legend) legend.innerHTML = ""; return; }
   var keys = Object.keys(groups);
   if (mode === "status") keys = ["Abierta", "Cerrada", "Atrasada"].filter(function (k) { return groups[k]; });
   else keys.sort(function (a, b) {
     if (a === "Sin asignar") return 1; if (b === "Sin asignar") return -1; return a.localeCompare(b);
   });
-  var legend = document.getElementById("pieLegend");
-  if (!total) { svg.innerHTML = ""; if (legend) legend.innerHTML = ""; return; }
   var cx = 150, cy = 150, r = 120, start = -Math.PI / 2, parts = [];
   function polar(a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
   if (keys.length === 1) {
@@ -1963,6 +1999,24 @@ function renderPie() {
       return '<div><span class="swatch" style="background:' + pieColorFor(k, i, mode) + ';"></span>' + k + ' ' + groups[k] + ' (' + pct + '%)</div>';
     }).join("");
   }
+}
+function renderPie() {
+  if (typeof gantt === "undefined") return;
+  var activeBtn = document.querySelector(".piebtn.active");
+  var mode = activeBtn ? activeBtn.dataset.pie : "person";
+  var groupsTech = {}, groupsPM = {}, totalTech = 0, totalPM = 0;
+  gantt.eachTask(function (t) {
+    if (typeof taskMatchesFilters === "function" && !taskMatchesFilters(t)) return;
+    var key;
+    if (mode === "status") key = t.statusCls === "closed" ? "Cerrada" : (t.statusCls === "overdue" ? "Atrasada" : "Abierta");
+    else key = (t.assignees && t.assignees.length) ? t.assignees.join(" + ") : "Sin asignar";
+    if (isPMTask(t)) { groupsPM[key] = (groupsPM[key] || 0) + 1; totalPM++; }
+    else { groupsTech[key] = (groupsTech[key] || 0) + 1; totalTech++; }
+  });
+  var meta = document.getElementById("pieMeta");
+  if (meta) meta.textContent = (totalTech + totalPM) ? (totalTech + " técnicas y " + totalPM + " no técnicas (PM) según el filtro actual") : "Sin tareas con el filtro actual";
+  drawPie("pieSvgTech", "pieLegendTech", groupsTech, totalTech, mode);
+  drawPie("pieSvgPM", "pieLegendPM", groupsPM, totalPM, mode);
 }
 function showTab(name) {
   var g = document.getElementById("ganttTab"), p = document.getElementById("pieTab");
