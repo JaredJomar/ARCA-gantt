@@ -40,6 +40,27 @@
   #workload th, #workload td { padding: 6px 14px 6px 0; text-align: left; border-bottom: 1px solid #eee; }
   details.token-help { font-size: 13px; }
   details.token-help summary { cursor: pointer; }
+.tabbar { display: flex; gap: 8px; padding: 12px 20px 0; align-items: center; }
+.tabbar button.active, .pie-controls button.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
+.pie-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 20px 0; }
+.pie-wrap { display: flex; gap: 24px; align-items: flex-start; padding: 16px 20px 24px; flex-wrap: wrap; }
+#pieSvg { width: 300px; max-width: 90vw; height: auto; flex: none; }
+.pie-legend { font-size: 14px; }
+.pie-legend div { margin: 5px 0; }
+@media (max-width: 700px) {
+  body { overflow-x: hidden; }
+  header { padding: 12px 14px; }
+  header h1 { font-size: 18px; }
+  header p { font-size: 12px; }
+  .panel { padding: 10px 14px; }
+  .panel input[type="password"] { width: 100%; max-width: 100%; }
+  .panel input[type="text"], .panel select { width: 100%; }
+  #gantt_here { margin: 10px 8px 16px; }
+  #workload { margin: 0 8px 16px; overflow-x: auto; }
+  #status { padding: 8px 14px; }
+  .tabbar, .pie-controls, .pie-wrap { padding-left: 14px; padding-right: 14px; }
+  .pie-wrap { flex-direction: column; gap: 12px; }
+}
   @media print {
     header, .panel, #status, #workload { display: none !important; }
     #gantt_here { margin: 0; border: none; }
@@ -121,6 +142,11 @@
 
 <div id="status">Escribe tu token y pulsa «Cargar Gantt».</div>
 <div id="wrap" style="display:none;">
+  <div class="tabbar">
+    <button class="secondary tabbtn active" data-tab="gantt">Gantt</button>
+    <button class="secondary tabbtn" data-tab="pie">Gráfica</button>
+  </div>
+  <div id="ganttTab">
   <div id="gantt_here"></div>
   <div id="workload" style="display:none;">
     <strong>Carga por persona</strong>
@@ -131,6 +157,18 @@
     </table>
   </div>
   <p style="font-size:13px; margin: 0 20px 24px;">Para quitar un enlace: haz clic en la flecha y pulsa Supr (se pide confirmación). Los enlaces nuevos se guardan como dependencia fin-a-inicio: el texto del issue solo guarda el par de issues, no el tipo.</p>
+  </div>
+  <div id="pieTab" style="display:none;">
+    <div class="pie-controls">
+      <button class="secondary piebtn active" data-pie="person">Por persona</button>
+      <button class="secondary piebtn" data-pie="status">Por estado</button>
+      <span id="pieMeta" style="font-size:13px;"></span>
+    </div>
+    <div class="pie-wrap">
+      <svg id="pieSvg" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas"></svg>
+      <div id="pieLegend" class="pie-legend"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.js"></script>
@@ -414,7 +452,10 @@ function initGantt() {
     { name: "varStart", label: "Desv. ini", width: 80, template: t => varianceText(t, "start") },
     { name: "varEnd", label: "Desv. fin", width: 80, template: t => varianceText(t, "end") }
   ];
-  gantt.config.grid_width = 885;
+  __fullCols = gantt.config.columns;
+  __compactCols = (window.innerWidth <= 700);
+  if (__compactCols) { gantt.config.columns = compactColumns(); }
+  gantt.config.grid_width = __compactCols ? compactGridWidth() : 885;
   gantt.config.row_height = 28;
   gantt.config.bar_height = 18;
   gantt.config.min_column_width = 50;
@@ -1289,6 +1330,107 @@ function hasMatchingDescendant(id) {
   }
   return false;
 }
+function escText(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function compactColumns() {
+  return [
+    { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return '<span title="' + escText(t.text) + '">' + escText(t.text) + '</span>'; } }
+  ];
+}
+function compactGridWidth() { return Math.max(180, Math.min(260, window.innerWidth - 160)); }
+var __fullCols;
+var __compactCols;
+function applyResponsiveColumns() {
+  if (typeof gantt === "undefined") return;
+  if (typeof ganttReady !== "undefined" && !ganttReady) return;
+  var compact = window.innerWidth <= 700;
+  if (__compactCols === compact) return;
+  __compactCols = compact;
+  if (compact) {
+    if (!__fullCols) __fullCols = gantt.config.columns;
+    gantt.config.columns = compactColumns();
+    gantt.config.grid_width = compactGridWidth();
+  } else {
+    if (__fullCols) gantt.config.columns = __fullCols;
+    __fullCols = gantt.config.columns;
+__compactCols = (window.innerWidth <= 700);
+if (__compactCols) { gantt.config.columns = compactColumns(); }
+gantt.config.grid_width = __compactCols ? compactGridWidth() : 885;
+  }
+  gantt.render();
+  if (typeof fitGanttHeight === "function") fitGanttHeight();
+}
+window.addEventListener("resize", function () {
+  clearTimeout(window.__resizeTimer);
+  window.__resizeTimer = setTimeout(applyResponsiveColumns, 200);
+});
+function pieColorFor(key, i, mode) {
+  if (mode === "status") {
+    if (key === "Cerrada") return "#2da44e";
+    if (key === "Atrasada") return "#d1242f";
+    return "#1f6feb";
+  }
+  var palette = ["#1f6feb", "#2da44e", "#d1242f", "#9b59b6", "#e67e22", "#0ea5a5", "#8a94a6", "#d4a017"];
+  return palette[i % palette.length];
+}
+function renderPie() {
+  var svg = document.getElementById("pieSvg");
+  if (!svg || typeof gantt === "undefined") return;
+  var activeBtn = document.querySelector(".piebtn.active");
+  var mode = activeBtn ? activeBtn.dataset.pie : "person";
+  var groups = {}, total = 0;
+  gantt.eachTask(function (t) {
+    if (typeof taskMatchesFilters === "function" && !taskMatchesFilters(t)) return;
+    var key;
+    if (mode === "status") key = t.statusCls === "closed" ? "Cerrada" : (t.statusCls === "overdue" ? "Atrasada" : "Abierta");
+    else key = (t.assignees && t.assignees.length) ? t.assignees.join(" + ") : "Sin asignar";
+    groups[key] = (groups[key] || 0) + 1; total++;
+  });
+  var meta = document.getElementById("pieMeta");
+  if (meta) meta.textContent = total ? (total + " tareas según el filtro actual") : "Sin tareas con el filtro actual";
+  var keys = Object.keys(groups);
+  if (mode === "status") keys = ["Abierta", "Cerrada", "Atrasada"].filter(function (k) { return groups[k]; });
+  else keys.sort(function (a, b) {
+    if (a === "Sin asignar") return 1; if (b === "Sin asignar") return -1; return a.localeCompare(b);
+  });
+  var legend = document.getElementById("pieLegend");
+  if (!total) { svg.innerHTML = ""; if (legend) legend.innerHTML = ""; return; }
+  var cx = 150, cy = 150, r = 120, start = -Math.PI / 2, parts = [];
+  function polar(a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+  if (keys.length === 1) {
+    parts.push('<circle cx="150" cy="150" r="120" fill="' + pieColorFor(keys[0], 0, mode) + '"/>');
+  } else {
+    keys.forEach(function (k, i) {
+      var frac = groups[k] / total;
+      var end = start + frac * Math.PI * 2;
+      var p1 = polar(start), p2 = polar(end);
+      var large = frac > 0.5 ? 1 : 0;
+      parts.push('<path d="M150,150 L' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1) + ' A120,120 0 ' + large + ',1 ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1) + ' Z" fill="' + pieColorFor(k, i, mode) + '"/>');
+      start = end;
+    });
+  }
+  parts.push('<text x="150" y="146" text-anchor="middle" font-size="28" font-weight="700" fill="#24292f">' + total + '</text>');
+  parts.push('<text x="150" y="168" text-anchor="middle" font-size="13" fill="#57606a">tareas</text>');
+  svg.innerHTML = parts.join("");
+  if (legend) {
+    legend.innerHTML = keys.map(function (k, i) {
+      var pct = Math.round(groups[k] / total * 1000) / 10;
+      return '<div><span class="swatch" style="background:' + pieColorFor(k, i, mode) + ';"></span>' + k + ' ' + groups[k] + ' (' + pct + '%)</div>';
+    }).join("");
+  }
+}
+function showTab(name) {
+  var g = document.getElementById("ganttTab"), p = document.getElementById("pieTab");
+  if (!g || !p) return;
+  document.querySelectorAll(".tabbtn").forEach(function (x) { x.classList.toggle("active", x.dataset.tab === name); });
+  if (name === "pie") { g.style.display = "none"; p.style.display = "block"; window.__pieOpen = true; renderPie(); }
+  else { p.style.display = "none"; g.style.display = "block"; window.__pieOpen = false; if (typeof gantt !== "undefined") { gantt.setSizes(); if (typeof fitGanttHeight === "function") fitGanttHeight(); gantt.render(); } }
+}
+document.querySelectorAll(".tabbtn").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.tab); }); });
+document.querySelectorAll(".piebtn").forEach(function (b) { b.addEventListener("click", function () {
+  document.querySelectorAll(".piebtn").forEach(function (x) { x.classList.remove("active"); });
+  b.classList.add("active");
+  renderPie();
+}); });
 function applyFilters() {
   filterAssignee = $("#fAssignee").value;
   filterStatus = $("#fStatus").value;
@@ -1303,6 +1445,7 @@ function applyFilters() {
   }
   gantt.refreshData();
   fitGanttHeight();
+  if (window.__pieOpen && typeof renderPie === "function") renderPie();
 }
 function renderWorkload() {
   const map = new Map();
@@ -1428,6 +1571,27 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   .baseline-cell { display: block; height: 6px; margin-top: 21px; background: #8a94a6; opacity: 0.55; border-radius: 3px; }
   .today-cell, .gantt_task_cell.today-cell { background-color: rgba(209,36,47,0.10); box-shadow: inset 2px 0 0 #d1242f; }
   .weekend-cell, .gantt_task_cell.weekend-cell { background-color: rgba(0,0,0,0.04); }
+.tabbar { display: flex; gap: 8px; padding: 12px 20px 0; align-items: center; }
+.tabbar button.active, .pie-controls button.active { background: #ddf4ff; border-color: #1f6feb; color: #0969da; }
+.pie-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 20px 0; }
+.pie-wrap { display: flex; gap: 24px; align-items: flex-start; padding: 16px 20px 24px; flex-wrap: wrap; }
+#pieSvg { width: 300px; max-width: 90vw; height: auto; flex: none; }
+.pie-legend { font-size: 14px; }
+.pie-legend div { margin: 5px 0; }
+@media (max-width: 700px) {
+  body { overflow-x: hidden; }
+  header { padding: 12px 14px; }
+  header h1 { font-size: 18px; }
+  header p { font-size: 12px; }
+  .panel { padding: 10px 14px; }
+  .panel input[type="password"] { width: 100%; max-width: 100%; }
+  .panel input[type="text"], .panel select { width: 100%; }
+  #gantt_here { margin: 10px 8px 16px; }
+  #workload { margin: 0 8px 16px; overflow-x: auto; }
+  #status { padding: 8px 14px; }
+  .tabbar, .pie-controls, .pie-wrap { padding-left: 14px; padding-right: 14px; }
+  .pie-wrap { flex-direction: column; gap: 12px; }
+}
 </style>
 </head>
 <body>
@@ -1463,7 +1627,24 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
   </span>
   <span id="meta" style="font-size:13px;"></span>
 </div>
+<div class="tabbar">
+  <button class="secondary tabbtn active" data-tab="gantt">Gantt</button>
+  <button class="secondary tabbtn" data-tab="pie">Gráfica</button>
+</div>
+<div id="ganttTab">
 <div id="gantt_here"></div>
+</div>
+<div id="pieTab" style="display:none;">
+  <div class="pie-controls">
+    <button class="secondary piebtn active" data-pie="person">Por persona</button>
+    <button class="secondary piebtn" data-pie="status">Por estado</button>
+    <span id="pieMeta" style="font-size:13px;"></span>
+  </div>
+  <div class="pie-wrap">
+    <svg id="pieSvg" viewBox="0 0 300 300" role="img" aria-label="Gráfica circular de tareas"></svg>
+    <div id="pieLegend" class="pie-legend"></div>
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@10.0.3/codebase/dhtmlxgantt.js"><\/script>
 <script>
 const DATA = ${dataJson};
@@ -1698,6 +1879,104 @@ function fitGanttHeight() {
     gantt.setSizes();
   }
 }
+function escText(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function compactColumns() {
+  return [
+    { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return '<span title="' + escText(t.text) + '">' + escText(t.text) + '</span>'; } }
+  ];
+}
+function compactGridWidth() { return Math.max(180, Math.min(260, window.innerWidth - 160)); }
+var __fullCols;
+var __compactCols;
+function applyResponsiveColumns() {
+  if (typeof gantt === "undefined") return;
+  if (typeof ganttReady !== "undefined" && !ganttReady) return;
+  var compact = window.innerWidth <= 700;
+  if (__compactCols === compact) return;
+  __compactCols = compact;
+  if (compact) {
+    if (!__fullCols) __fullCols = gantt.config.columns;
+    gantt.config.columns = compactColumns();
+    gantt.config.grid_width = compactGridWidth();
+  } else {
+    if (__fullCols) gantt.config.columns = __fullCols;
+    gantt.config.grid_width = 885;
+  }
+  gantt.render();
+  if (typeof fitGanttHeight === "function") fitGanttHeight();
+}
+window.addEventListener("resize", function () {
+  clearTimeout(window.__resizeTimer);
+  window.__resizeTimer = setTimeout(applyResponsiveColumns, 200);
+});
+function pieColorFor(key, i, mode) {
+  if (mode === "status") {
+    if (key === "Cerrada") return "#2da44e";
+    if (key === "Atrasada") return "#d1242f";
+    return "#1f6feb";
+  }
+  var palette = ["#1f6feb", "#2da44e", "#d1242f", "#9b59b6", "#e67e22", "#0ea5a5", "#8a94a6", "#d4a017"];
+  return palette[i % palette.length];
+}
+function renderPie() {
+  var svg = document.getElementById("pieSvg");
+  if (!svg || typeof gantt === "undefined") return;
+  var activeBtn = document.querySelector(".piebtn.active");
+  var mode = activeBtn ? activeBtn.dataset.pie : "person";
+  var groups = {}, total = 0;
+  gantt.eachTask(function (t) {
+    if (typeof taskMatchesFilters === "function" && !taskMatchesFilters(t)) return;
+    var key;
+    if (mode === "status") key = t.statusCls === "closed" ? "Cerrada" : (t.statusCls === "overdue" ? "Atrasada" : "Abierta");
+    else key = (t.assignees && t.assignees.length) ? t.assignees.join(" + ") : "Sin asignar";
+    groups[key] = (groups[key] || 0) + 1; total++;
+  });
+  var meta = document.getElementById("pieMeta");
+  if (meta) meta.textContent = total ? (total + " tareas según el filtro actual") : "Sin tareas con el filtro actual";
+  var keys = Object.keys(groups);
+  if (mode === "status") keys = ["Abierta", "Cerrada", "Atrasada"].filter(function (k) { return groups[k]; });
+  else keys.sort(function (a, b) {
+    if (a === "Sin asignar") return 1; if (b === "Sin asignar") return -1; return a.localeCompare(b);
+  });
+  var legend = document.getElementById("pieLegend");
+  if (!total) { svg.innerHTML = ""; if (legend) legend.innerHTML = ""; return; }
+  var cx = 150, cy = 150, r = 120, start = -Math.PI / 2, parts = [];
+  function polar(a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+  if (keys.length === 1) {
+    parts.push('<circle cx="150" cy="150" r="120" fill="' + pieColorFor(keys[0], 0, mode) + '"/>');
+  } else {
+    keys.forEach(function (k, i) {
+      var frac = groups[k] / total;
+      var end = start + frac * Math.PI * 2;
+      var p1 = polar(start), p2 = polar(end);
+      var large = frac > 0.5 ? 1 : 0;
+      parts.push('<path d="M150,150 L' + p1[0].toFixed(1) + ',' + p1[1].toFixed(1) + ' A120,120 0 ' + large + ',1 ' + p2[0].toFixed(1) + ',' + p2[1].toFixed(1) + ' Z" fill="' + pieColorFor(k, i, mode) + '"/>');
+      start = end;
+    });
+  }
+  parts.push('<text x="150" y="146" text-anchor="middle" font-size="28" font-weight="700" fill="#24292f">' + total + '</text>');
+  parts.push('<text x="150" y="168" text-anchor="middle" font-size="13" fill="#57606a">tareas</text>');
+  svg.innerHTML = parts.join("");
+  if (legend) {
+    legend.innerHTML = keys.map(function (k, i) {
+      var pct = Math.round(groups[k] / total * 1000) / 10;
+      return '<div><span class="swatch" style="background:' + pieColorFor(k, i, mode) + ';"></span>' + k + ' ' + groups[k] + ' (' + pct + '%)</div>';
+    }).join("");
+  }
+}
+function showTab(name) {
+  var g = document.getElementById("ganttTab"), p = document.getElementById("pieTab");
+  if (!g || !p) return;
+  document.querySelectorAll(".tabbtn").forEach(function (x) { x.classList.toggle("active", x.dataset.tab === name); });
+  if (name === "pie") { g.style.display = "none"; p.style.display = "block"; window.__pieOpen = true; renderPie(); }
+  else { p.style.display = "none"; g.style.display = "block"; window.__pieOpen = false; if (typeof gantt !== "undefined") { gantt.setSizes(); if (typeof fitGanttHeight === "function") fitGanttHeight(); gantt.render(); } }
+}
+document.querySelectorAll(".tabbtn").forEach(function (b) { b.addEventListener("click", function () { showTab(b.dataset.tab); }); });
+document.querySelectorAll(".piebtn").forEach(function (b) { b.addEventListener("click", function () {
+  document.querySelectorAll(".piebtn").forEach(function (x) { x.classList.remove("active"); });
+  b.classList.add("active");
+  renderPie();
+}); });
 function applyFilters() {
   filterAssignee = document.getElementById("fAssignee").value;
   filterStatus = document.getElementById("fStatus").value;
@@ -1712,6 +1991,7 @@ function applyFilters() {
   }
   gantt.refreshData();
   fitGanttHeight();
+  if (window.__pieOpen && typeof renderPie === "function") renderPie();
 }
 (function buildAssignees() {
   const sel = document.getElementById("fAssignee");
