@@ -35,7 +35,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 29 de octubre de 2026, 11:07. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 29 de octubre de 2026, 10:35. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -230,14 +230,30 @@ function enableColumnResize() {
     if (drag) { drag = null; root.style.cursor = ""; document.body.style.cursor = ""; }
   });
 }
-gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
+function taskMatchesFilters(task) {
   if (filterAssignee !== "all") {
     if (filterAssignee === "Sin asignar") { if (task.assignees.length) return false; }
     else if (task.assignees.indexOf(filterAssignee) === -1) return false;
   }
   if (filterStatus !== "all" && task.statusCls !== filterStatus) return false;
-  if (filterText && task.text.toLowerCase().indexOf(filterText) === -1 && String(task.id).indexOf(filterText) === -1) return false;
+  if (filterText) {
+    var q = filterText.charAt(0) === "#" ? filterText.slice(1) : filterText;
+    if (/^\d+$/.test(q)) { if (String(task.id) !== q) return false; }
+    else if (task.text.toLowerCase().indexOf(q) === -1) return false;
+  }
   return true;
+}
+function hasMatchingDescendant(id) {
+  var children = gantt.getChildren(id);
+  for (var i = 0; i < children.length; i++) {
+    var child = gantt.getTask(children[i]);
+    if (taskMatchesFilters(child) || hasMatchingDescendant(children[i])) return true;
+  }
+  return false;
+}
+gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
+  if (taskMatchesFilters(task)) return true;
+  return hasMatchingDescendant(id);
 });
 function setScale(mode) {
   currentScaleMode = mode;
@@ -288,6 +304,14 @@ function applyFilters() {
   filterAssignee = document.getElementById("fAssignee").value;
   filterStatus = document.getElementById("fStatus").value;
   filterText = document.getElementById("fSearch").value.trim().toLowerCase();
+  if (filterAssignee !== "all" || filterStatus !== "all" || filterText) {
+    gantt.eachTask(function (t) {
+      if (taskMatchesFilters(t)) {
+        var p = gantt.getParent(t.id);
+        while (p) { gantt.open(p); p = gantt.getParent(p); }
+      }
+    });
+  }
   gantt.refreshData();
   fitGanttHeight();
 }
