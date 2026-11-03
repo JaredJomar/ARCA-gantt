@@ -136,6 +136,11 @@ dependencias, el visor avisa y no calcula la ruta.
   PM quedan fuera de la gráfica: se detectan por palabras
   clave en el título (planificación, sprints, checkpoints,
   revisiones, hitos, documentación y demos, entre otras).
+- En pantallas pequeñas el deslizamiento táctil mueve la línea
+  de tiempo (DHTMLX con touch forzado); los filtros se guardan
+  en el navegador y sobreviven a recargar la página, y el botón
+  "Limpiar filtros" los deja en su valor por defecto sin
+  recargar.
 - "Agrupar por persona" ordena las filas por asignado.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
   atrasadas, días laborables y máxima simultaneidad (la mayor
