@@ -623,8 +623,11 @@ function initGantt() {
     if (suppressLinkEvents) return;
     handleLinkDelete(link);
   });
-  gantt.attachEvent("onTaskClick", function (id) {
+  gantt.attachEvent("onTaskClick", function (id, e) {
     if (justDragged) return true;
+    // El triángulo de expandir/colapsar también dispara onTaskClick:
+    // en ese caso solo se expande, sin abrir el issue en GitHub.
+    if (e && e.target && e.target.closest && e.target.closest(".gantt_tree_icon")) return true;
     selectedLinkId = null;
     window.open("https://github.com/" + REPO + "/issues/" + id, "_blank");
     return true;
