@@ -103,6 +103,7 @@
     </select>
   </label>
   <input type="text" id="fSearch" placeholder="Buscar tarea o #número">
+  <button id="clearFiltersBtn" class="secondary">Limpiar filtros</button>
   <label><input type="checkbox" id="groupPerson"> Agrupar por persona</label>
   <label><input type="checkbox" id="editToggle"> Edición</label>
   <label><input type="checkbox" id="autoMove"> Mover dependientes</label>
@@ -461,6 +462,7 @@ function initGantt() {
   __compactCols = (window.innerWidth <= 700);
   if (__compactCols) { gantt.config.columns = compactColumns(); }
   gantt.config.grid_width = __compactCols ? compactGridWidth() : 885;
+  if (__compactCols) { gantt.config.touch = "force"; }
   gantt.config.row_height = 28;
   gantt.config.bar_height = 18;
   gantt.config.min_column_width = 50;
@@ -701,6 +703,7 @@ async function load() {
 gantt.attachEvent("onGanttRender", fitGanttHeight);
 window.addEventListener("resize", fitGanttHeight);
 fitGanttHeight();
+    if (restoreFilters()) applyFilters();
     suppressLinkEvents = false;
     const bl = await loadBaseline();
     if (bl) currentBaseline = bl;
@@ -1445,7 +1448,34 @@ document.querySelectorAll(".piebtn").forEach(function (b) { b.addEventListener("
   b.classList.add("active");
   renderPie();
 }); });
+var FILTER_KEY = "arca_gantt_filters";
+function hasFilterOption(sel, v) { for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].value === v) return true; } return false; }
+function saveFilters() {
+  try { localStorage.setItem(FILTER_KEY, JSON.stringify({ a: document.getElementById("fAssignee").value, s: document.getElementById("fStatus").value, q: document.getElementById("fSearch").value })); } catch (e) {}
+}
+function restoreFilters() {
+  var raw = null;
+  try { raw = localStorage.getItem(FILTER_KEY); } catch (e) {}
+  if (!raw) return false;
+  var f = null;
+  try { f = JSON.parse(raw); } catch (e) {}
+  if (!f) return false;
+  var changed = false;
+  var sa = document.getElementById("fAssignee");
+  if (f.a && hasFilterOption(sa, f.a)) { sa.value = f.a; changed = true; }
+  var ss = document.getElementById("fStatus");
+  if (f.s && hasFilterOption(ss, f.s)) { ss.value = f.s; changed = true; }
+  if (typeof f.q === "string" && f.q) { document.getElementById("fSearch").value = f.q; changed = true; }
+  return changed;
+}
+function clearFilters() {
+  document.getElementById("fAssignee").value = "all";
+  document.getElementById("fStatus").value = "all";
+  document.getElementById("fSearch").value = "";
+  try { localStorage.removeItem(FILTER_KEY); } catch (e) {}
+}
 function applyFilters() {
+  saveFilters();
   filterAssignee = $("#fAssignee").value;
   filterStatus = $("#fStatus").value;
   filterText = $("#fSearch").value.trim().toLowerCase();
@@ -1632,6 +1662,7 @@ function buildStandaloneHTML(data, stamp, withBaseline) {
     </select>
   </label>
   <input type="text" id="fSearch" placeholder="Buscar tarea o #número">
+  <button id="clearFiltersBtn" class="secondary">Limpiar filtros</button>
   <button id="criticalBtn" class="secondary">Camino crítico</button>
   ${withBaseline ? '<label><input type="checkbox" id="showBaseline"> Mostrar baseline</label>' : ''}
   <span class="legend">
@@ -1711,6 +1742,7 @@ gantt.config.columns = [
   { name: "varEnd", label: "Desv. fin", width: 80, template: function (t) { return varianceText(t, "end"); } }
 ];
 gantt.config.grid_width = 885;
+if (window.innerWidth <= 700) { gantt.config.touch = "force"; }
 gantt.config.row_height = 28;
 gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
@@ -2002,7 +2034,34 @@ document.querySelectorAll(".piebtn").forEach(function (b) { b.addEventListener("
   b.classList.add("active");
   renderPie();
 }); });
+var FILTER_KEY = "arca_gantt_filters";
+function hasFilterOption(sel, v) { for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].value === v) return true; } return false; }
+function saveFilters() {
+  try { localStorage.setItem(FILTER_KEY, JSON.stringify({ a: document.getElementById("fAssignee").value, s: document.getElementById("fStatus").value, q: document.getElementById("fSearch").value })); } catch (e) {}
+}
+function restoreFilters() {
+  var raw = null;
+  try { raw = localStorage.getItem(FILTER_KEY); } catch (e) {}
+  if (!raw) return false;
+  var f = null;
+  try { f = JSON.parse(raw); } catch (e) {}
+  if (!f) return false;
+  var changed = false;
+  var sa = document.getElementById("fAssignee");
+  if (f.a && hasFilterOption(sa, f.a)) { sa.value = f.a; changed = true; }
+  var ss = document.getElementById("fStatus");
+  if (f.s && hasFilterOption(ss, f.s)) { ss.value = f.s; changed = true; }
+  if (typeof f.q === "string" && f.q) { document.getElementById("fSearch").value = f.q; changed = true; }
+  return changed;
+}
+function clearFilters() {
+  document.getElementById("fAssignee").value = "all";
+  document.getElementById("fStatus").value = "all";
+  document.getElementById("fSearch").value = "";
+  try { localStorage.removeItem(FILTER_KEY); } catch (e) {}
+}
 function applyFilters() {
+  saveFilters();
   filterAssignee = document.getElementById("fAssignee").value;
   filterStatus = document.getElementById("fStatus").value;
   filterText = document.getElementById("fSearch").value.trim().toLowerCase();
@@ -2040,6 +2099,7 @@ gantt.parse({ data: DATA.tasks, links: DATA.links });
 gantt.attachEvent("onGanttRender", fitGanttHeight);
 window.addEventListener("resize", fitGanttHeight);
 fitGanttHeight();
+applyResponsiveColumns();
 (function () {
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
@@ -2064,6 +2124,8 @@ document.querySelectorAll(".viewbtn").forEach(function (btn) {
 document.getElementById("fAssignee").addEventListener("change", applyFilters);
 document.getElementById("fStatus").addEventListener("change", applyFilters);
 document.getElementById("fSearch").addEventListener("input", applyFilters);
+document.getElementById("clearFiltersBtn").addEventListener("click", function () { clearFilters(); applyFilters(); });
+if (restoreFilters()) applyFilters();
 document.getElementById("criticalBtn").addEventListener("click", function () {
   criticalOn = !criticalOn;
   this.classList.toggle("active", criticalOn);
@@ -2125,6 +2187,7 @@ document.querySelectorAll(".viewbtn").forEach(btn => {
 $("#fAssignee").addEventListener("change", () => { if (ganttReady) applyFilters(); });
 $("#fStatus").addEventListener("change", () => { if (ganttReady) applyFilters(); });
 $("#fSearch").addEventListener("input", () => { if (ganttReady) applyFilters(); });
+$("#clearFiltersBtn").addEventListener("click", function () { clearFilters(); if (ganttReady) applyFilters(); });
 $("#groupPerson").addEventListener("change", e => {
   if (!ganttReady) return;
   if (e.target.checked) gantt.sort("assignee");
