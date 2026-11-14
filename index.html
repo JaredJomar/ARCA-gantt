@@ -86,7 +86,7 @@
   @media print {
     @page { size: landscape; margin: 10mm; }
     html, body { margin: 0 !important; padding: 0 !important; }
-    header, .panel, #status, #workload, #controls, .tabbar, .pie-wrap, .pie-controls, .legend, #meta, #shareMsg, #routerStatus, #autoRefreshMsg { display: none !important; }
+    header, .panel, #status, #workload, #controls, .tabbar, .pie-wrap, .pie-controls, .legend, #meta, #shareMsg, #routerStatus, #autoRefreshMsg, #linkHelp { display: none !important; }
     body { background: #fff !important; }
     #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; page-break-before: avoid !important; break-before: avoid !important; }
     #gantt_here, #gantt_here * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -193,7 +193,7 @@
       <tbody id="workloadBody"></tbody>
     </table>
   </div>
-  <p style="font-size:13px; margin: 0 20px 24px;">Para quitar un enlace: haz clic en la flecha y pulsa Supr (se pide confirmación). Los enlaces nuevos se guardan como dependencia fin-a-inicio: el texto del issue solo guarda el par de issues, no el tipo.</p>
+  <p id="linkHelp" style="font-size:13px; margin: 0 20px 24px;">Para quitar un enlace: haz clic en la flecha y pulsa Supr (se pide confirmación). Los enlaces nuevos se guardan como dependencia fin-a-inicio: el texto del issue solo guarda el par de issues, no el tipo.</p>
   </div>
   <div id="pieTab" style="display:none;">
     <div class="pie-controls">
@@ -1952,6 +1952,7 @@ function fitGanttHeight() {
 // gráfico (tabla + línea de tiempo) quepa en el ancho de la página.
 var __printing = false;
 var __printPrevH = null;
+var __printPrevW = null;
 var __printPrevMode = null;
 var __printPrevCols = null;
 var __printPrevGridW = null;
@@ -1968,14 +1969,16 @@ function preparePrint() {
   // Vista Mes (línea de tiempo más angosta) y columnas compactas.
   if (typeof setScale === "function") setScale("Month");
   gantt.config.columns = [
-    { name: "wbs", label: "WBS", width: 40, template: function (t) { return t.wbs || ""; } },
+    { name: "wbs", label: "WBS", width: 50, template: function (t) { return t.wbs || ""; } },
     { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title=\"" + escAttr(t.text) + "\">" + esc(t.text) + "</span>"; } },
-    { name: "assignee", label: "Asignado", width: 100, template: function (t) { return t.assignee; } },
-    { name: "start", label: "Inicio", width: 85, template: function (t) { return fmtDate(t.start_date); } },
-    { name: "end", label: "Fin", width: 85, template: function (t) { return fmtDate(t.inclusiveEnd); } }
+    { name: "assignee", label: "Asignado", width: 95, template: function (t) { return t.assignee; } },
+    { name: "start", label: "Inicio", width: 90, template: function (t) { return fmtDate(t.start_date); } },
+    { name: "end", label: "Fin", width: 90, template: function (t) { return fmtDate(t.inclusiveEnd); } }
   ];
-  gantt.config.grid_width = 480;
-  gantt.config.min_column_width = 40;
+  gantt.config.grid_width = 500;
+  gantt.config.min_column_width = 35;
+  __printPrevW = root.style.width;
+  root.style.width = "960px";
   var visible = 0;
   gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
   var scaleEl = root.querySelector(".gantt_grid_scale");
@@ -1992,7 +1995,8 @@ function restoreAfterPrint() {
   __printing = false;
   var root = document.getElementById("gantt_here");
   if (root && __printPrevH !== null) root.style.height = __printPrevH;
-  __printPrevH = null;
+  if (root && __printPrevW !== null) root.style.width = __printPrevW;
+  __printPrevH = null; __printPrevW = null;
   if (typeof gantt !== "undefined") {
     if (__printPrevCols) gantt.config.columns = __printPrevCols;
     if (__printPrevGridW !== null) gantt.config.grid_width = __printPrevGridW;
