@@ -201,7 +201,12 @@ dependencias, el visor avisa y no calcula la ruta.
   y gris). En camino crítico la
   flecha es roja. Al pasar el cursor por una tarea o por una
   flecha, las demás flechas se atenúan y solo queda visible su
-  cadena.
+  cadena. Y si aun así dos flechas compartirían el mismo camino,
+  el router las separa: las verticales se abren en x y las
+  horizontales finales en y, con 3 px entre vecinas, reconectando
+  cada esquina y cada flecha sin soltar los extremos (el inicio
+  sigue en la barra origen y la flecha en la barra destino), así
+  que ninguna línea se dibuja encima de otra.
 
 ## Botones
 
