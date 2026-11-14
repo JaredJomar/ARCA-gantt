@@ -58,7 +58,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 19:05. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 19:14. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -165,6 +165,7 @@ if (__compactCols) { gantt.config.touch = "force"; }
 gantt.config.row_height = 28;
 gantt.config.bar_height = 18;
 gantt.config.min_column_width = 50;
+gantt.config.link_line_width = 4; // flechas de dependencia más gruesas (antes 2)
 gantt.config.drag_move = false;
 gantt.config.drag_resize = false;
 gantt.config.drag_progress = false;
@@ -386,7 +387,7 @@ function routeLinks() {
     var wrapW = cfg.link_wrapper_width || 20;
     var lineW = cfg.link_line_width || 2;
     var inset = (wrapW - lineW) / 2;
-    var STEP = 3; // separación entre líneas vecinas (línea 2px + 1px de hueco)
+    var STEP = 6; // separación entre líneas vecinas (línea 4px + 2px de hueco)
     var linkEls = document.querySelectorAll("#gantt_here .gantt_task_link");
     routerFound = linkEls.length;
     if (!linkEls.length) return;
@@ -448,12 +449,16 @@ function routeLinks() {
     var YPAD = 24;
     function shiftX(L) { return L.mainV.x0 + (L.dx === null ? 0 : L.dx); }
     function shiftY(L) { return L.finalH.y0 + (L.dy === null ? 0 : L.dy); }
+    // Rango y de la vertical principal con dy aplicado (dy alarga/acorta
+    // la vertical para seguir llegando a la horizontal final).
+    function vY0(L) { return L.mainV.dir === "down" ? L.mainV.y0 : L.mainV.y0 + (L.dy || 0); }
+    function vY1(L) { return L.mainV.dir === "down" ? L.mainV.y1 + (L.dy || 0) : L.mainV.y1; }
     function blockedDX(L, cand) {
       var nx = L.mainV.x0 + cand;
       for (var i = 0; i < links.length; i++) {
         var O = links[i];
         if (O === L) continue;
-        if (Math.abs(shiftX(O) - nx) < 1 && (L.mainV.y0 - YPAD) < O.mainV.y1 && O.mainV.y0 < (L.mainV.y1 + YPAD)) return true;
+        if (Math.abs(shiftX(O) - nx) < lineW && (vY0(L) - YPAD) < vY1(O) && vY0(O) < (vY1(L) + YPAD)) return true;
       }
       return false;
     }
@@ -462,7 +467,10 @@ function routeLinks() {
       for (var i = 0; i < links.length; i++) {
         var O = links[i];
         if (O === L) continue;
-        if (Math.abs(shiftY(O) - ny) < 1 && L.finalH.x0 < O.finalH.x1 && O.finalH.x0 < L.finalH.x1) return true;
+        // La x0 de la horizontal final se mueve con dx (su extremo izquierdo
+      // está en la vertical); la x1 (en el destino) no.
+      var lx0 = L.finalH.x0 + (L.dx || 0), ox0 = O.finalH.x0 + (O.dx || 0);
+      if (Math.abs(shiftY(O) - ny) < lineW && lx0 < O.finalH.x1 && ox0 < L.finalH.x1) return true;
       }
       return false;
     }
@@ -483,9 +491,16 @@ function routeLinks() {
       return 0;
     }
     var byV = links.slice().sort(function (a, b) { return (a.mainV.x0 - b.mainV.x0) || (a.mainV.y0 - b.mainV.y0); });
-    byV.forEach(function (L) { L.dx = pickDX(L); });
     var byH = links.slice().sort(function (a, b) { return (a.finalH.y0 - b.finalH.y0) || (a.finalH.x0 - b.finalH.x0); });
-    byH.forEach(function (L) { L.dy = pickDY(L); });
+    // dx y dy se afectan mutuamente (dy cambia el rango y de la vertical;
+    // dx cambia la x0 de la horizontal final), así que se itera hasta que
+    // nada cambie (máx. 4 pasadas).
+    for (var pass = 0; pass < 4; pass++) {
+      var changed = false;
+      byV.forEach(function (L) { var v = pickDX(L); if (v !== L.dx) { L.dx = v; changed = true; } });
+      byH.forEach(function (L) { var v = pickDY(L); if (v !== L.dy) { L.dy = v; changed = true; } });
+      if (!changed) break;
+    }
     // Aplicar los desplazamientos reconectando cada junta.
     links.forEach(function (L) {
       var dx = L.dx || 0, dy = L.dy || 0;
