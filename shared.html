@@ -58,7 +58,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 18:50. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 19:05. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -554,8 +554,11 @@ function routeLinks() {
     if (window.console) console.warn("routeLinks:", err);
   } finally {
     window.__routerDebug = { found: routerFound, parsed: routerParsed, moved: routerMoved, maxDx: routerMaxDx, maxDy: routerMaxDy, error: routerError };
+    // El contador "separadas en esta pasada" es engañoso: en una segunda
+    // pasada sobre un DOM ya separado no hay nada que mover (0/N) aunque
+    // las líneas sí están separadas. Solo se muestra si hay error.
     var rs = document.getElementById("routerStatus");
-    if (rs) rs.textContent = routerError ? (" · Router: error: " + routerError) : (routerFound ? (" · Flechas: " + routerMoved + "/" + routerParsed + " separadas") : " · Router: 0 enlaces");
+    if (rs) rs.textContent = routerError ? (" · Router: error: " + routerError) : "";
     linkRouterRunning = false;
   }
 }
