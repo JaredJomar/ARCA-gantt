@@ -145,6 +145,10 @@ dependencias, el visor avisa y no calcula la ruta.
   en el navegador y sobreviven a recargar la página, y el botón
   "Limpiar filtros" los deja en su valor por defecto sin
   recargar.
+- Cuando el filtro deja pocas tareas visibles, las filas se
+  estiran para usar el espacio disponible y que las flechas de
+  dependencia tengan hueco entre las barras; con muchas tareas,
+  las filas quedan compactas como antes.
 - "Agrupar por persona" ordena las filas por asignado.
 - "Carga por persona" muestra una tabla con tareas, abiertas,
   atrasadas, días laborables y máxima simultaneidad (la mayor
