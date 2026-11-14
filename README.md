@@ -195,9 +195,13 @@ dependencias, el visor avisa y no calcula la ruta.
 - Flechas de colores: cada flecha lleva el color de la barra de
   la tarea origen (azul abierta, verde cerrada, roja atrasada),
   así que cuando varias se cruzan se distingue de dónde viene
-  cada una. En camino crítico la flecha es roja. Al pasar el
-  cursor por una tarea o por una flecha, las demás flechas se
-  atenúan y solo queda visible su cadena.
+  cada una. Si varias flechas llegan al mismo issue con el
+  mismo color, las repetidas toman colores distintos (morado,
+  naranja, turquesa, rosa, lima, índigo, cian, dorado, marrón
+  y gris). En camino crítico la
+  flecha es roja. Al pasar el cursor por una tarea o por una
+  flecha, las demás flechas se atenúan y solo queda visible su
+  cadena.
 
 ## Botones
 
