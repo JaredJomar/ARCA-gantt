@@ -32,6 +32,14 @@
   .gantt_task_line.task-overdue .gantt_task_progress { background-color: #9e1b25; }
   .gantt_task_line.task-critical { border: 2px solid #d1242f; }
   .gantt_row.row-critical { font-weight: 600; }
+  /* Flechas de dependencia: mismo color que la barra de la tarea origen, para distinguirlas cuando se cruzan */
+  .gantt_task_link.link-open { --dhx-gantt-link-background: #1f6feb; }
+  .gantt_task_link.link-closed { --dhx-gantt-link-background: #2da44e; }
+  .gantt_task_link.link-overdue { --dhx-gantt-link-background: #d1242f; }
+  .gantt_task_link.gantt_critical_link { --dhx-gantt-link-background: #e63030 !important; }
+  /* Al pasar el cursor por una tarea o una flecha, las demás flechas se atenúan */
+  .gantt_task_link.link-dim { opacity: .2; }
+  .gantt_task_link.link-hot { filter: drop-shadow(0 0 3px rgba(0, 0, 0, .55)); }
   .baseline-cell { display: block; height: 6px; margin-top: 21px; background: #8a94a6; opacity: 0.55; border-radius: 3px; }
   .today-cell, .gantt_task_cell.today-cell { background-color: rgba(209,36,47,0.10); box-shadow: inset 2px 0 0 #d1242f; }
   .weekend-cell, .gantt_task_cell.weekend-cell { background-color: rgba(0,0,0,0.04); }
@@ -119,6 +127,7 @@
     <span><span class="swatch" style="background:#d1242f;"></span>Atrasada</span>
     <span><span class="swatch" style="background:#fff;border:2px solid #d1242f;"></span>Camino crítico</span>
     <span><span class="swatch" style="background:#8a94a6;"></span>Baseline</span>
+    <span>&rarr; Flecha: color de la tarea origen</span>
   </span>
   <span id="meta" style="font-size:13px;"></span>
   <button id="exportBtn" class="secondary">Exportar HTML</button>
@@ -529,7 +538,9 @@ function updateFocusBanner() {
   if (!focusSet || !focusLinkId) { b.style.display = "none"; return; }
   const link = gantt.getLink(focusLinkId);
   const target = link ? link.target : "?";
-  $("#focusBannerText").textContent = "Mostrando #" + target + " y sus dependencias: " + focusSet.size + " tarea(s). Para volver a ver todo: clic en la misma flecha, clic en un espacio vacío, pulsa Esc o usa «Quitar filtro».";
+  const typeName = { "0": "Fin a inicio", "1": "Inicio a inicio", "2": "Fin a fin", "3": "Inicio a fin" };
+  const arrow = link ? ("Flecha #" + link.source + " → #" + link.target + " (" + (typeName[link.type] || "Fin a inicio") + ") · ") : "";
+  $("#focusBannerText").textContent = arrow + "Mostrando #" + target + " y sus dependencias: " + focusSet.size + " tarea(s). Para volver a ver todo: clic en la misma flecha, clic en un espacio vacío, pulsa Esc o usa «Quitar filtro».";
   b.style.display = "block";
 }
 function clearLinkFocus() {
@@ -539,6 +550,32 @@ function clearLinkFocus() {
   const b = $("#focusBanner");
   if (b) b.style.display = "none";
   if (ganttReady) { gantt.refreshData(); fitGanttHeight(); }
+}
+
+// Resaltado al pasar el cursor: al señalar una tarea o una flecha, las
+// demás flechas se atenúan para que la cadena se distinga sin ambigüedad.
+// Se hace con clases directas sobre el DOM (sin re-render), así que es instantáneo.
+let hoverLinkIds = null;
+let hoverKey = "";
+let lastHoverTaskId = null;
+let lastHoverLinkId = null;
+function linksForTask(taskId) {
+  const set = new Set();
+  for (const l of gantt.getLinks()) {
+    if (String(l.source) === String(taskId) || String(l.target) === String(taskId)) set.add(String(l.id));
+  }
+  return set;
+}
+function setHoverLinks(set) {
+  const key = set ? [...set].sort().join(",") : "";
+  if (key === hoverKey) return;
+  hoverKey = key;
+  hoverLinkIds = set;
+  document.querySelectorAll("#gantt_here .gantt_task_link").forEach(el => {
+    const id = el.getAttribute("link_id");
+    el.classList.toggle("link-dim", !!set && !set.has(id));
+    el.classList.toggle("link-hot", !!set && set.has(id));
+  });
 }
 
 // Construcción de tareas y enlaces para DHTMLX.
@@ -687,6 +724,28 @@ function initGantt() {
     let c = "task-" + task.statusCls;
     if (criticalOn && criticalSet.has(task.id)) c += " task-critical";
     return c;
+  };
+  // Flechas de dependencia: color según el estado de la tarea origen
+  // (azul abierta, verde cerrada, roja atrasada); en camino crítico, roja.
+  gantt.templates.link_class = function (link) {
+    let cls = "link-open";
+    try {
+      if (gantt.isTaskExists(link.source)) {
+        const src = gantt.getTask(link.source);
+        cls = "link-" + (src.statusCls || "open");
+      }
+    } catch (e) { /* sin tarea origen: color por defecto */ }
+    if (criticalOn && criticalSet.has(String(link.source)) && criticalSet.has(String(link.target))) {
+      let binding = true;
+      if (link.type === "0" || !link.type) {
+        try {
+          const s = gantt.getTask(link.source), t = gantt.getTask(link.target);
+          binding = fmtDate(t.start_date) === fmtDate(s.end_date);
+        } catch (e) { binding = true; }
+      }
+      if (binding) cls += " gantt_critical_link";
+    }
+    return cls;
   };
   gantt.templates.task_text = function (start, end, task) { return "#" + task.id; };
   gantt.templates.rightside_text = function (start, end, task) { return task.assignee; };
@@ -2439,6 +2498,27 @@ $("#focusClearBtn").addEventListener("click", clearLinkFocus);
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && focusSet) clearLinkFocus();
 });
+// Resaltado al pasar el cursor por una tarea o una flecha: las demás se atenúan.
+$("#gantt_here").addEventListener("mouseover", e => {
+  if (!ganttReady) return;
+  const st = (typeof gantt.getState === "function") ? gantt.getState() : null;
+  if (st && st.drag_mode) return;
+  const linkEl = (e.target && e.target.closest) ? e.target.closest(".gantt_task_link") : null;
+  if (linkEl) {
+    const lid = linkEl.getAttribute("link_id");
+    if (lid !== lastHoverLinkId) { lastHoverLinkId = lid; lastHoverTaskId = null; setHoverLinks(new Set([String(lid)])); }
+    return;
+  }
+  const taskEl = (e.target && e.target.closest) ? e.target.closest("[task_id]") : null;
+  if (taskEl) {
+    const tid = taskEl.getAttribute("task_id");
+    if (tid !== lastHoverTaskId) { lastHoverTaskId = tid; lastHoverLinkId = null; setHoverLinks(linksForTask(tid)); }
+    return;
+  }
+  lastHoverTaskId = null; lastHoverLinkId = null;
+  setHoverLinks(null);
+});
+$("#gantt_here").addEventListener("mouseleave", () => { lastHoverTaskId = null; lastHoverLinkId = null; setHoverLinks(null); });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && autoRefreshOn && ganttReady) checkForUpdates();
 });
