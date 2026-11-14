@@ -1669,9 +1669,10 @@ function pieColorFor(key, i, mode) {
     if (key === "Atrasada") return "#d1242f";
     return "#1f6feb";
   }
-  // Paleta de 12 colores distintos, con cian; si hay más de 12 grupos,
-  // los siguientes usan tonos en ángulo dorado para no repetirse nunca.
-  var palette = ["#1f6feb", "#00bcd4", "#2da44e", "#84cc16", "#d4a017", "#e67e22", "#d1242f", "#e84393", "#9b59b6", "#6c5ce7", "#795548", "#8a94a6"];
+  // Jared siempre es cian; los demás grupos usan la paleta. Si hay más de
+  // 11 grupos, los siguientes usan tonos en ángulo dorado para no repetirse.
+  if (key === "JaredJomar") return "#00bcd4";
+  var palette = ["#1f6feb", "#2da44e", "#84cc16", "#d4a017", "#e67e22", "#d1242f", "#e84393", "#9b59b6", "#6c5ce7", "#795548", "#8a94a6"];
   if (i < palette.length) return palette[i];
   var hue = (i * 137.508) % 360;
   return "hsl(" + hue.toFixed(1) + ", 62%, 42%)";
@@ -2259,9 +2260,10 @@ function pieColorFor(key, i, mode) {
     if (key === "Atrasada") return "#d1242f";
     return "#1f6feb";
   }
-  // Paleta de 12 colores distintos, con cian; si hay más de 12 grupos,
-  // los siguientes usan tonos en ángulo dorado para no repetirse nunca.
-  var palette = ["#1f6feb", "#00bcd4", "#2da44e", "#84cc16", "#d4a017", "#e67e22", "#d1242f", "#e84393", "#9b59b6", "#6c5ce7", "#795548", "#8a94a6"];
+  // Jared siempre es cian; los demás grupos usan la paleta. Si hay más de
+  // 11 grupos, los siguientes usan tonos en ángulo dorado para no repetirse.
+  if (key === "JaredJomar") return "#00bcd4";
+  var palette = ["#1f6feb", "#2da44e", "#84cc16", "#d4a017", "#e67e22", "#d1242f", "#e84393", "#9b59b6", "#6c5ce7", "#795548", "#8a94a6"];
   if (i < palette.length) return palette[i];
   var hue = (i * 137.508) % 360;
   return "hsl(" + hue.toFixed(1) + ", 62%, 42%)";
