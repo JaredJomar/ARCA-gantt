@@ -1240,6 +1240,17 @@ async function load() {
     linkColorsDirty = true;
     fitGanttHeight();
     routeLinks();
+    // Re-enrutar al desplazar: DHTMLX renderiza los enlaces del viewport al hacer scroll
+    // y ese render no siempre dispara onGanttRender.
+    (function () {
+      var holder = document.getElementById("gantt_here");
+      if (!holder) return;
+      var t = null;
+      holder.addEventListener("scroll", function () {
+        if (t) clearTimeout(t);
+        t = setTimeout(routeLinks, 150);
+      }, true);
+    })();
     if (restoreFilters()) applyFilters();
     suppressLinkEvents = false;
     const bl = await loadBaseline();
