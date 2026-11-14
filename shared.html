@@ -70,7 +70,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 19:50. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 19:52. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -397,6 +397,9 @@ function preparePrint() {
   var root = document.getElementById("gantt_here");
   if (!root) return;
   __printing = true;
+  // Volver arriba: si la página está desplazada, la impresión puede
+  // empezar desde esa posición y dejar la primera página en blanco.
+  if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
   __printPrevMode = (typeof currentScaleMode !== "undefined") ? currentScaleMode : "Week";
   __printPrevCols = gantt.config.columns;
   __printPrevGridW = gantt.config.grid_width;
