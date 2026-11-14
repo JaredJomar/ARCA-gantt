@@ -133,7 +133,9 @@ dependencias, el visor avisa y no calcula la ruta.
   columna de tarea y la línea de tiempo se desplaza; pestaña
   Gráfica con gráfica circular solo de tareas técnicas, por
   persona o por estado, según el filtro actual. Cada grupo
-  tiene su propio color, sin importar cuántos grupos haya.
+  tiene su propio color de una paleta de 12 (azul, cian, verde,
+  lima, dorado, naranja, rojo, rosa, morado, índigo, marrón y
+  gris), sin importar cuántos grupos haya.
   Las tareas de PM quedan fuera de la gráfica: se detectan por palabras
   clave en el título (planificación, sprints, checkpoints,
   revisiones, hitos, documentación y demos, entre otras).
