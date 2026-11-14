@@ -58,7 +58,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 18:17. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 18:29. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -88,6 +88,7 @@
     <span><span class="swatch" style="background:#8a94a6;"></span>Baseline</span>
   </span>
   <span id="meta" style="font-size:13px;"></span>
+  <span id="routerStatus" style="font-size:13px;"></span>
 </div>
 <div class="tabbar">
   <button class="secondary tabbtn active" data-tab="gantt">Gantt</button>
@@ -379,6 +380,7 @@ function routeLinks() {
   if (linkRouterRunning) return;
   try { if (gantt.getState().drag_mode) return; } catch (e) { return; }
   linkRouterRunning = true;
+  var routerFound = 0, routerParsed = 0, routerMoved = 0, routerMaxDx = 0, routerMaxDy = 0, routerError = null;
   try {
     var cfg = gantt.config;
     var wrapW = cfg.link_wrapper_width || 20;
@@ -386,6 +388,7 @@ function routeLinks() {
     var inset = (wrapW - lineW) / 2;
     var STEP = 3; // separación entre líneas vecinas (línea 2px + 1px de hueco)
     var linkEls = document.querySelectorAll("#gantt_here .gantt_task_link");
+    routerFound = linkEls.length;
     if (!linkEls.length) return;
     // Parsear cada enlace: sus segmentos están en orden de trazado
     // (hijos en el orden source -> target).
@@ -539,9 +542,20 @@ function routeLinks() {
         if (moveY && dy) c.el.style.top = (c.top + dy) + "px";
       });
     });
+    // Diagnóstico: cuántos enlaces se encontraron, se procesaron y se movieron.
+    routerParsed = links.length;
+    links.forEach(function (L) {
+      if (L.dx || L.dy) routerMoved++;
+      if (Math.abs(L.dx || 0) > routerMaxDx) routerMaxDx = Math.abs(L.dx || 0);
+      if (Math.abs(L.dy || 0) > routerMaxDy) routerMaxDy = Math.abs(L.dy || 0);
+    });
   } catch (err) {
+    routerError = String(err && err.message || err);
     if (window.console) console.warn("routeLinks:", err);
   } finally {
+    window.__routerDebug = { found: routerFound, parsed: routerParsed, moved: routerMoved, maxDx: routerMaxDx, maxDy: routerMaxDy, error: routerError };
+    var rs = document.getElementById("routerStatus");
+    if (rs) rs.textContent = routerError ? (" · Router: error: " + routerError) : (routerFound ? (" · Flechas: " + routerMoved + "/" + routerParsed + " separadas") : " · Router: 0 enlaces");
     linkRouterRunning = false;
   }
 }
