@@ -689,10 +689,10 @@ function routeLinks() {
           var s;
           if (dir === "left" || dir === "right") {
             var y = top + h / 2;
-            s = { el: k, dir: dir, kind: "H", x0: left + inset, x1: left + w - inset, y0: y, y1: y, wTop: top, wLeft: left, wWidth: w, wHeight: h, childIdx: i };
+            s = { el: k, lineEl: lineEl, dir: dir, kind: "H", x0: left + inset, x1: left + w - inset, y0: y, y1: y, wTop: top, wLeft: left, wWidth: w, wHeight: h, lW: parseFloat(lineEl.style.width) || 0, lH: parseFloat(lineEl.style.height) || 0, childIdx: i };
           } else {
             var x = left + w / 2;
-            s = { el: k, dir: dir, kind: "V", x0: x, x1: x, y0: top + inset, y1: top + h - inset, wTop: top, wLeft: left, wWidth: w, wHeight: h, childIdx: i };
+            s = { el: k, lineEl: lineEl, dir: dir, kind: "V", x0: x, x1: x, y0: top + inset, y1: top + h - inset, wTop: top, wLeft: left, wWidth: w, wHeight: h, lW: parseFloat(lineEl.style.width) || 0, lH: parseFloat(lineEl.style.height) || 0, childIdx: i };
           }
           segs.push(s);
         } else if (k.classList.contains("gantt_link_corner")) {
@@ -783,13 +783,17 @@ function routeLinks() {
       if (dx) {
         mv.el.style.left = (mv.wLeft + dx) + "px";
         // Horizontal superior: su extremo en la vertical se mueve con ella.
+        // La línea interior (hija del wrapper) tiene ancho fijo en px, así
+        // que hay que estirarla/encogerla igual que el wrapper o queda cortada.
         if (th) {
           var dRight = Math.abs(th.x1 - vx), dLeft = Math.abs(th.x0 - vx);
           if (dRight <= 8 && dRight <= dLeft) {
             th.el.style.width = Math.max(2, th.wWidth + dx) + "px";
+            if (th.lineEl) th.lineEl.style.width = Math.max(2, th.lW + dx) + "px";
           } else if (dLeft <= 8) {
             th.el.style.left = (th.wLeft + dx) + "px";
             th.el.style.width = Math.max(2, th.wWidth - dx) + "px";
+            if (th.lineEl) th.lineEl.style.width = Math.max(2, th.lW - dx) + "px";
           }
         }
         // Horizontal final: empieza en la vertical (su extremo izquierdo).
@@ -798,21 +802,27 @@ function routeLinks() {
           if (fLeft <= 8 && fLeft <= fRight) {
             fh.el.style.left = (fh.wLeft + dx) + "px";
             fh.el.style.width = Math.max(2, fh.wWidth - dx) + "px";
+            if (fh.lineEl) fh.lineEl.style.width = Math.max(2, fh.lW - dx) + "px";
           } else if (fRight <= 8) {
             fh.el.style.width = Math.max(2, fh.wWidth + dx) + "px";
+            if (fh.lineEl) fh.lineEl.style.width = Math.max(2, fh.lW + dx) + "px";
           }
         }
       }
       if (dy) {
         // La horizontal final y su flecha bajan/suben dy; la vertical se
-        // alarga o acorta para seguir llegando hasta ella.
+        // alarga o acorta para seguir llegando hasta ella. La línea interior
+        // de la vertical también tiene alto fijo en px: hay que estirarla
+        // igual que el wrapper o la vertical queda cortada antes de la junta.
         fh.el.style.top = (fh.wTop + dy) + "px";
         if (L.arrow) L.arrow.el.style.top = (L.arrow.top + dy) + "px";
         if (mv.dir === "down") {
           mv.el.style.height = Math.max(2, mv.wHeight + dy) + "px";
+          if (mv.lineEl) mv.lineEl.style.height = Math.max(2, mv.lH + dy) + "px";
         } else {
           mv.el.style.top = (mv.wTop + dy) + "px";
           mv.el.style.height = Math.max(2, mv.wHeight - dy) + "px";
+          if (mv.lineEl) mv.lineEl.style.height = Math.max(2, mv.lH - dy) + "px";
         }
       }
       // Esquinas: las que están entre la horizontal superior y la vertical
