@@ -771,7 +771,8 @@ function initGantt() {
     const leftPct = Math.max(0, (bStart - cellStart) / cellMs) * 100;
     const rightPct = Math.min(100, (bEndEx - cellStart) / cellMs * 100);
     if (rightPct <= leftPct) return "";
-    return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;'></div>";
+    var baseTop = Math.round((gantt.config.row_height + gantt.config.bar_height) / 2) - 2;
+    return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;margin-top:" + baseTop + "px;'></div>";
   };
   // Hoy con línea (sin marcadores PRO): la columna del día actual se tiñe y lleva
   // una línea roja (sombra interior en cada celda); los fines de semana se sombrean.
@@ -1598,16 +1599,29 @@ function fitGanttHeight() {
   gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
   var scaleEl = root.querySelector(".gantt_grid_scale");
   var scaleH = scaleEl ? scaleEl.offsetHeight : 36;
-  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
   var top = root.getBoundingClientRect().top;
   var maxH = window.innerHeight - top - 24;
   if (maxH < 200) maxH = 200;
+  // Si hay pocas tareas visibles, se estiran las filas para usar el espacio
+  // disponible: así las flechas de dependencia tienen hueco entre las barras
+  // en vez de apelotonarse. Con muchas tareas, las filas quedan compactas.
+  var rh = 28, bh = 18;
+  if (visible > 0) {
+    var avail = maxH - scaleH - 20;
+    rh = Math.max(28, Math.min(56, Math.floor(avail / visible)));
+    bh = Math.max(18, Math.min(30, rh - 16));
+  }
+  var heightChanged = false;
+  if (gantt.config.row_height !== rh) { gantt.config.row_height = rh; heightChanged = true; }
+  if (gantt.config.bar_height !== bh) { gantt.config.bar_height = bh; heightChanged = true; }
+  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
   var h = Math.max(200, Math.min(needed, maxH));
   var cur = parseInt(root.style.height, 10);
   if (!cur || Math.abs(cur - h) > 1) {
     root.style.height = h + "px";
     gantt.setSizes();
   }
+  if (heightChanged) gantt.render();
 }
 function taskMatchesFilters(task) {
   if (filterAssignee !== "all") {
@@ -2067,7 +2081,8 @@ gantt.templates.timeline_cell_content = function (task, date) {
   const leftPct = Math.max(0, (bStart - cellStart) / cellMs) * 100;
   const rightPct = Math.min(100, (bEndEx - cellStart) / cellMs * 100);
   if (rightPct <= leftPct) return "";
-  return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;'></div>";
+  var baseTop = Math.round((gantt.config.row_height + gantt.config.bar_height) / 2) - 2;
+  return "<div class='baseline-cell' style='margin-left:" + leftPct + "%;width:" + (rightPct - leftPct) + "%;margin-top:" + baseTop + "px;'></div>";
 };
 // Hoy con línea (sin marcadores PRO): la columna del día actual se tiñe y lleva
 // una línea roja (sombra interior en cada celda); los fines de semana se sombrean.
@@ -2213,16 +2228,29 @@ function fitGanttHeight() {
   gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
   var scaleEl = root.querySelector(".gantt_grid_scale");
   var scaleH = scaleEl ? scaleEl.offsetHeight : 36;
-  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
   var top = root.getBoundingClientRect().top;
   var maxH = window.innerHeight - top - 24;
   if (maxH < 200) maxH = 200;
+  // Si hay pocas tareas visibles, se estiran las filas para usar el espacio
+  // disponible: así las flechas de dependencia tienen hueco entre las barras
+  // en vez de apelotonarse. Con muchas tareas, las filas quedan compactas.
+  var rh = 28, bh = 18;
+  if (visible > 0) {
+    var avail = maxH - scaleH - 20;
+    rh = Math.max(28, Math.min(56, Math.floor(avail / visible)));
+    bh = Math.max(18, Math.min(30, rh - 16));
+  }
+  var heightChanged = false;
+  if (gantt.config.row_height !== rh) { gantt.config.row_height = rh; heightChanged = true; }
+  if (gantt.config.bar_height !== bh) { gantt.config.bar_height = bh; heightChanged = true; }
+  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
   var h = Math.max(200, Math.min(needed, maxH));
   var cur = parseInt(root.style.height, 10);
   if (!cur || Math.abs(cur - h) > 1) {
     root.style.height = h + "px";
     gantt.setSizes();
   }
+  if (heightChanged) gantt.render();
 }
 function escText(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 function compactColumns() {
