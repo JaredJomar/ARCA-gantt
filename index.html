@@ -107,6 +107,8 @@
   <label><input type="checkbox" id="groupPerson"> Agrupar por persona</label>
   <label><input type="checkbox" id="editToggle"> Edición</label>
   <label><input type="checkbox" id="autoMove"> Mover dependientes</label>
+  <label title="Revisa GitHub cada minuto y actualiza el Gantt sin recargar la página"><input type="checkbox" id="autoRefreshToggle" checked> Actualización automática</label>
+  <span id="autoRefreshMsg" style="font-size:13px;"></span>
   <button id="criticalBtn" class="secondary">Camino crítico</button>
   <button id="saveBaselineBtn" class="secondary">Guardar baseline</button>
   <label><input type="checkbox" id="showBaseline"> Mostrar baseline</label>
@@ -144,6 +146,10 @@
 </div>
 
 <div id="status">Escribe tu token y pulsa «Cargar Gantt».</div>
+<div id="focusBanner" style="display:none; margin: 0 20px 12px; padding: 8px 12px; background: #fff8c5; border: 1px solid #d4a017; border-radius: 6px; font-size: 13px;">
+  <span id="focusBannerText"></span>
+  <button id="focusClearBtn" class="secondary" style="margin-left: 8px;">Quitar filtro</button>
+</div>
 <div id="wrap" style="display:none;">
   <div class="tabbar">
     <button class="secondary tabbtn active" data-tab="gantt">Gantt</button>
@@ -199,6 +205,20 @@ let selectedLinkId = null;
 let suppressLinkEvents = false;
 let justDragged = false;
 let currentScaleMode = "Week";
+// Actualización automática (sin recargar la página)
+const AUTO_REFRESH_MS = 60000;
+const AUTO_REFRESH_KEY = "arca_gantt_autorefresh";
+let autoRefreshOn = localStorage.getItem(AUTO_REFRESH_KEY) !== "0";
+let autoRefreshTimer = null;
+let lastIssues = null;
+let lastIssuesSig = "";
+let checkingUpdates = false;
+let isLoading = false;
+let isSaving = false;
+let autoRefreshFails = 0;
+// Foco en dependencias (clic en una flecha)
+let focusLinkId = null;
+let focusSet = null;
 // Historial deshacer/rehacer (gratis, sin PRO): cambios de tarea o de enlaces.
 const HISTORY_LIMIT = 50;
 let undoStack = [];
@@ -329,6 +349,196 @@ async function fetchAllIssues(token) {
     page++;
   }
   return all.filter(i => !i.pull_request);
+}
+
+// ---- Actualización automática: detectar cambios en GitHub sin recargar ----
+// Firma de los datos que se ven en el Gantt (número, estado, título, cuerpo y
+// asignados, ordenados por número). No incluye updated_at: después de un
+// guardado local el cuerpo ya coincide con GitHub y no hay que re-pintar.
+function issuesSignature(issues) {
+  const sorted = issues.filter(i => !i.pull_request).slice().sort((a, b) => a.number - b.number);
+  let s = "";
+  for (const i of sorted) {
+    s += i.number + "|" + i.state + "|" + i.title + "|" + (i.body || "") + "|" + (i.assignees || []).map(a => a.login).join(",") + "\n";
+  }
+  return s;
+}
+function noteLocalBodyChange(num, newBody) {
+  if (!lastIssues) return;
+  const it = lastIssues.find(i => String(i.number) === String(num));
+  if (it) { it.body = newBody; lastIssuesSig = issuesSignature(lastIssues); }
+}
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (!autoRefreshOn) return;
+  autoRefreshTimer = setInterval(checkForUpdates, AUTO_REFRESH_MS);
+}
+function stopAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
+async function checkForUpdates() {
+  if (!autoRefreshOn || !ganttReady || checkingUpdates || isLoading || isSaving || justDragged) return;
+  if (document.hidden) return;
+  const token = $("#token").value.trim();
+  if (!token) return;
+  const st = (typeof gantt.getState === "function") ? gantt.getState() : null;
+  if (st && st.drag_mode) return;
+  checkingUpdates = true;
+  try {
+    const issues = await fetchAllIssues(token);
+    try {
+      const sj = await fetch("subissues.json");
+      if (sj.ok) subIssueMap = await sj.json();
+    } catch (e) { /* se conserva el mapa anterior */ }
+    const sig = issuesSignature(issues);
+    const now = new Date();
+    if (sig === lastIssuesSig) {
+      $("#autoRefreshMsg").textContent = "Sin cambios · revisado " + now.toLocaleTimeString("es-PR");
+      autoRefreshFails = 0;
+      return;
+    }
+    const changed = syncFromIssues(issues);
+    lastIssues = issues;
+    lastIssuesSig = sig;
+    autoRefreshFails = 0;
+    const label = changed.length ? changed.slice(0, 8).join(", ") + (changed.length > 8 ? "…" : "") : "cambios";
+    setStatus("Actualizado automáticamente: " + new Date().toLocaleString("es-PR") + " · " + changed.length + " cambio(s): " + label + ".");
+    $("#autoRefreshMsg").textContent = "Actualizado " + now.toLocaleTimeString("es-PR") + " · " + changed.length + " cambio(s)";
+    if (focusLinkId) {
+      if (gantt.getLink(focusLinkId)) applyLinkFocus(focusLinkId);
+      else clearLinkFocus();
+    }
+  } catch (e) {
+    autoRefreshFails++;
+    $("#autoRefreshMsg").textContent = "No se pudo revisar (" + e.message + ")";
+    if (autoRefreshFails >= 3) {
+      stopAutoRefresh();
+      setStatus("Actualización automática pausada tras 3 intentos fallidos: " + e.message + " Revisa tu token.", true);
+    }
+  } finally {
+    checkingUpdates = false;
+  }
+}
+function syncFromIssues(freshIssues) {
+  const built = buildData(freshIssues);
+  const newById = new Map(built.tasks.map(t => [String(t.id), t]));
+  const fields = ["text", "start_date", "end_date", "inclusiveEnd", "progress", "assignees", "assignee", "state", "statusCls", "body", "rest_id", "order", "wbs"];
+  const changed = [];
+  const addedIds = new Set();
+  const desc = t => t.text + "|" + fmtDate(t.start_date) + "|" + fmtDate(t.inclusiveEnd) + "|" + Math.round(t.progress * 100) + "|" + t.state;
+  suppressLinkEvents = true;
+  for (const nt of built.tasks) {
+    if (gantt.isTaskExists(String(nt.id))) continue;
+    const copy = { id: String(nt.id) };
+    for (const f of fields) if (f in nt) copy[f] = nt[f];
+    if ("type" in nt) copy.type = nt.type;
+    gantt.addTask(copy);
+    addedIds.add(String(nt.id));
+    changed.push("#" + nt.id + " (nueva)");
+  }
+  for (const nt of built.tasks) {
+    const id = String(nt.id);
+    if (addedIds.has(id) || !gantt.isTaskExists(id)) continue;
+    const t = gantt.getTask(id);
+    const before = desc(t);
+    for (const f of fields) if (f in nt) t[f] = nt[f];
+    if ("type" in nt) t.type = nt.type; else delete t.type;
+    if (!nt.parent) delete t.parent;
+    gantt.updateTask(id);
+    if (desc(t) !== before) changed.push("#" + id);
+  }
+  for (const nt of built.tasks) {
+    if (!nt.parent) continue;
+    const t = gantt.getTask(String(nt.id));
+    if (t && String(t.parent) !== String(nt.parent)) {
+      t.parent = String(nt.parent);
+      gantt.updateTask(String(nt.id));
+    }
+  }
+  const gone = [];
+  gantt.eachTask(t => { if (!newById.has(String(t.id))) gone.push(String(t.id)); });
+  for (const id of gone) {
+    if (gantt.isTaskExists(id)) gantt.deleteTask(id);
+    changed.push("#" + id + " (eliminada)");
+  }
+  const newLinkIds = new Set(built.links.map(l => l.id));
+  for (const l of gantt.getLinks().slice()) {
+    if (!newLinkIds.has(l.id)) gantt.deleteLink(l.id);
+  }
+  for (const l of built.links) {
+    if (!gantt.getLink(l.id)) gantt.addLink({ id: l.id, source: l.source, target: l.target, type: l.type });
+  }
+  suppressLinkEvents = false;
+  currentTasks = built.tasks;
+  currentLinks = built.links;
+  recomputeRollup();
+  if (currentBaseline) attachBaseline();
+  if (criticalOn) computeCriticalPath();
+  updateMeta();
+  gantt.sort($("#groupPerson").checked ? "assignee" : "order");
+  gantt.refreshData();
+  fitGanttHeight();
+  if (window.__pieOpen && typeof renderPie === "function") renderPie();
+  const wl = $("#workload");
+  if (wl && wl.style.display !== "none") renderWorkload();
+  return changed;
+}
+
+// ---- Foco en dependencias: clic en una flecha muestra el issue y sus dependencias ----
+function hasFocusDescendant(id) {
+  const children = gantt.getChildren(id);
+  for (let i = 0; i < children.length; i++) {
+    if (focusSet.has(String(children[i]))) return true;
+    if (hasFocusDescendant(children[i])) return true;
+  }
+  return false;
+}
+function computeDependencyFocus(targetId) {
+  const set = new Set([String(targetId)]);
+  const stack = [String(targetId)];
+  const links = gantt.getLinks();
+  while (stack.length) {
+    const cur = stack.pop();
+    for (const l of links) {
+      if (String(l.target) === cur && !set.has(String(l.source))) {
+        set.add(String(l.source));
+        stack.push(String(l.source));
+      }
+    }
+  }
+  return set;
+}
+function applyLinkFocus(linkId) {
+  const link = gantt.getLink(linkId);
+  if (!link) { clearLinkFocus(); return; }
+  focusLinkId = linkId;
+  focusSet = computeDependencyFocus(link.target);
+  gantt.eachTask(function (t) {
+    if (focusSet.has(String(t.id))) {
+      let p = gantt.getParent(t.id);
+      while (p) { gantt.open(p); p = gantt.getParent(p); }
+    }
+  });
+  gantt.refreshData();
+  fitGanttHeight();
+  updateFocusBanner();
+}
+function updateFocusBanner() {
+  const b = $("#focusBanner");
+  if (!b) return;
+  if (!focusSet || !focusLinkId) { b.style.display = "none"; return; }
+  const link = gantt.getLink(focusLinkId);
+  const target = link ? link.target : "?";
+  $("#focusBannerText").textContent = "Mostrando #" + target + " y sus dependencias: " + focusSet.size + " tarea(s). Para volver a ver todo: clic en la misma flecha, clic en un espacio vacío, pulsa Esc o usa «Quitar filtro».";
+  b.style.display = "block";
+}
+function clearLinkFocus() {
+  if (!focusSet && !focusLinkId) return;
+  focusLinkId = null;
+  focusSet = null;
+  const b = $("#focusBanner");
+  if (b) b.style.display = "none";
+  if (ganttReady) { gantt.refreshData(); fitGanttHeight(); }
 }
 
 // Construcción de tareas y enlaces para DHTMLX.
@@ -591,6 +801,7 @@ function initGantt() {
   }
   // Filtros
   gantt.attachEvent("onBeforeTaskDisplay", function (id, task) {
+    if (focusSet && !focusSet.has(id) && !hasFocusDescendant(id)) return false;
     if (taskMatchesFilters(task)) return true;
     return hasMatchingDescendant(id);
   });
@@ -636,9 +847,12 @@ function initGantt() {
   });
   gantt.attachEvent("onLinkClick", function (id) {
     selectedLinkId = id;
+    if (focusLinkId === id) { clearLinkFocus(); return; }
+    applyLinkFocus(id);
   });
   gantt.attachEvent("onEmptyClick", function () {
     selectedLinkId = null;
+    if (focusSet) clearLinkFocus();
   });
   setScale("Week");
   gantt.init("gantt_here");
@@ -682,15 +896,22 @@ async function load() {
   const token = $("#token").value.trim();
   if (!token) { setStatus("Primero pega tu token de GitHub.", true); return; }
   localStorage.setItem("arca_gantt_token", token);
+  isLoading = true;
+  focusLinkId = null;
+  focusSet = null;
+  const fb0 = $("#focusBanner");
+  if (fb0) fb0.style.display = "none";
   setStatus("Cargando issues desde GitHub...");
   try {
     const issues = await fetchAllIssues(token);
+    lastIssues = issues;
+    lastIssuesSig = issuesSignature(issues);
     try {
       const sj = await fetch("subissues.json");
       if (sj.ok) subIssueMap = await sj.json();
     } catch (e) { subIssueMap = {}; }
     const built = buildData(issues);
-    if (!built.tasks.length) { setStatus("No se encontraron issues en " + REPO + ".", true); return; }
+    if (!built.tasks.length) { isLoading = false; setStatus("No se encontraron issues en " + REPO + ".", true); return; }
     currentTasks = built.tasks;
     currentLinks = built.links;
     $("#wrap").style.display = "block";
@@ -726,25 +947,33 @@ fitGanttHeight();
       window.__arcaScrolledToWeek = true;
     }
     setStatus("Actualizado: " + new Date().toLocaleString("es-PR") + ". Clic en una barra abre su issue. Arrastra para editar (necesitas token con escritura).");
+    isLoading = false;
+    startAutoRefresh();
   } catch (e) {
+    isLoading = false;
     setStatus(e.message, true);
   }
 }
 
 // Guardado en GitHub
 async function patchIssueBody(task, newBody) {
-  const res = await fetch("https://api.github.com/repos/" + REPO + "/issues/" + task.id, {
-    method: "PATCH",
-    headers: authHeaders(),
-    body: JSON.stringify({ body: newBody })
-  });
-  if (res.ok) return true;
-  if (res.status === 403) {
-    setStatus("Tu token es de solo lectura: para editar, pega un token con permiso de escritura (fine-grained, solo repo ARCA, Issues en lectura y escritura). La barra volvió a su fecha anterior.", true);
+  isSaving = true;
+  try {
+    const res = await fetch("https://api.github.com/repos/" + REPO + "/issues/" + task.id, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ body: newBody })
+    });
+    if (res.ok) { noteLocalBodyChange(task.id, newBody); return true; }
+    if (res.status === 403) {
+      setStatus("Tu token es de solo lectura: para editar, pega un token con permiso de escritura (fine-grained, solo repo ARCA, Issues en lectura y escritura). La barra volvió a su fecha anterior.", true);
+      return false;
+    }
+    setStatus("Error al guardar #" + task.id + ": GitHub devolvió " + res.status + ".", true);
     return false;
+  } finally {
+    isSaving = false;
   }
-  setStatus("Error al guardar #" + task.id + ": GitHub devolvió " + res.status + ".", true);
-  return false;
 }
 function revertTask(task) {
   task.start_date = new Date(task._preStart);
@@ -922,6 +1151,7 @@ async function handleLinkDelete(link) {
   if (criticalOn) computeCriticalPath();
   updateMeta();
   setStatus("Enlace quitado: #" + target.id + " ya no depende de #" + link.source + "." + note);
+  if (focusSet) clearLinkFocus();
 }
 
 // ---- Funciones nuevas gratuitas (sin PRO) ----
@@ -2199,6 +2429,19 @@ $("#editToggle").addEventListener("change", e => {
   gantt.render();
 });
 $("#autoMove").addEventListener("change", e => { autoMove = e.target.checked; });
+$("#autoRefreshToggle").addEventListener("change", e => {
+  autoRefreshOn = e.target.checked;
+  localStorage.setItem(AUTO_REFRESH_KEY, autoRefreshOn ? "1" : "0");
+  if (autoRefreshOn) { startAutoRefresh(); checkForUpdates(); }
+  else { stopAutoRefresh(); $("#autoRefreshMsg").textContent = "Actualización automática apagada."; }
+});
+$("#focusClearBtn").addEventListener("click", clearLinkFocus);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && focusSet) clearLinkFocus();
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && autoRefreshOn && ganttReady) checkForUpdates();
+});
 $("#criticalBtn").addEventListener("click", () => {
   if (!ganttReady) return;
   criticalOn = !criticalOn;
@@ -2285,6 +2528,7 @@ window.addEventListener("resize", () => {
   resizeTimer = setTimeout(() => gantt.render(), 200);
 });
 
+$("#autoRefreshToggle").checked = autoRefreshOn;
 const saved = localStorage.getItem("arca_gantt_token");
 if (saved) { $("#token").value = saved; load(); }
 </script>
