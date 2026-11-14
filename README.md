@@ -182,7 +182,14 @@ dependencias, el visor avisa y no calcula la ruta.
   issue tiene muchas. Para quitar el filtro: clic en la misma
   flecha, clic en un espacio vacío, pulsa Esc o usa el botón
   "Quitar filtro" del aviso amarillo. Borrar el enlace también
-  quita el filtro.
+  quita el filtro. El aviso indica la flecha exacta, por
+  ejemplo "Flecha #12 → #45 (Fin a inicio)".
+- Flechas de colores: cada flecha lleva el color de la barra de
+  la tarea origen (azul abierta, verde cerrada, roja atrasada),
+  así que cuando varias se cruzan se distingue de dónde viene
+  cada una. En camino crítico la flecha es roja. Al pasar el
+  cursor por una tarea o por una flecha, las demás flechas se
+  atenúan y solo queda visible su cadena.
 
 ## Botones
 
