@@ -1220,12 +1220,13 @@ async function load() {
     buildAssigneeFilter(built.tasks);
     suppressLinkEvents = true;
     gantt.clearAll();
+    gantt.attachEvent("onGanttRender", fitGanttHeight);
+    gantt.attachEvent("onGanttRender", routeLinks);
+    window.addEventListener("resize", fitGanttHeight);
     gantt.parse({ data: built.tasks, links: built.links });
     linkColorsDirty = true;
-gantt.attachEvent("onGanttRender", fitGanttHeight);
-gantt.attachEvent("onGanttRender", routeLinks);
-window.addEventListener("resize", fitGanttHeight);
-fitGanttHeight();
+    fitGanttHeight();
+    routeLinks();
     if (restoreFilters()) applyFilters();
     suppressLinkEvents = false;
     const bl = await loadBaseline();
