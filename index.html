@@ -37,6 +37,18 @@
   .gantt_task_link.link-closed { --dhx-gantt-link-background: #2da44e; }
   .gantt_task_link.link-overdue { --dhx-gantt-link-background: #d1242f; }
   .gantt_task_link.gantt_critical_link { --dhx-gantt-link-background: #e63030 !important; }
+  /* Colores alternativos: cuando varias flechas llegan al mismo issue con
+     el mismo color, las repetidas toman uno de estos para distinguirse */
+  .gantt_task_link.link-alt0 { --dhx-gantt-link-background: #9b59b6; }
+  .gantt_task_link.link-alt1 { --dhx-gantt-link-background: #e67e22; }
+  .gantt_task_link.link-alt2 { --dhx-gantt-link-background: #0ea5a5; }
+  .gantt_task_link.link-alt3 { --dhx-gantt-link-background: #e84393; }
+  .gantt_task_link.link-alt4 { --dhx-gantt-link-background: #84cc16; }
+  .gantt_task_link.link-alt5 { --dhx-gantt-link-background: #6c5ce7; }
+  .gantt_task_link.link-alt6 { --dhx-gantt-link-background: #00bcd4; }
+  .gantt_task_link.link-alt7 { --dhx-gantt-link-background: #d4a017; }
+  .gantt_task_link.link-alt8 { --dhx-gantt-link-background: #795548; }
+  .gantt_task_link.link-alt9 { --dhx-gantt-link-background: #8a94a6; }
   /* Al pasar el cursor por una tarea o una flecha, las demás flechas se atenúan */
   .gantt_task_link.link-dim { opacity: .2; }
   .gantt_task_link.link-hot { filter: drop-shadow(0 0 3px rgba(0, 0, 0, .55)); }
@@ -127,7 +139,7 @@
     <span><span class="swatch" style="background:#d1242f;"></span>Atrasada</span>
     <span><span class="swatch" style="background:#fff;border:2px solid #d1242f;"></span>Camino crítico</span>
     <span><span class="swatch" style="background:#8a94a6;"></span>Baseline</span>
-    <span>&rarr; Flecha: color de la tarea origen</span>
+    <span>&rarr; Flecha: color de la tarea origen (varía si varias llegan al mismo issue)</span>
   </span>
   <span id="meta" style="font-size:13px;"></span>
   <button id="exportBtn" class="secondary">Exportar HTML</button>
@@ -485,6 +497,7 @@ function syncFromIssues(freshIssues) {
   if (criticalOn) computeCriticalPath();
   updateMeta();
   gantt.sort($("#groupPerson").checked ? "assignee" : "order");
+  linkColorsDirty = true;
   gantt.refreshData();
   fitGanttHeight();
   if (window.__pieOpen && typeof renderPie === "function") renderPie();
@@ -576,6 +589,52 @@ function setHoverLinks(set) {
     el.classList.toggle("link-dim", !!set && !set.has(id));
     el.classList.toggle("link-hot", !!set && set.has(id));
   });
+}
+
+// Color de flechas: cada flecha lleva el color de la tarea origen, pero si
+// varias flechas llegan al mismo issue con el mismo color, las repetidas
+// toman colores alternativos para que se distingan entre sí.
+var linkColorById = {};
+var linkColorsDirty = true;
+var LINK_ALT_CLASSES = ["link-alt0", "link-alt1", "link-alt2", "link-alt3", "link-alt4", "link-alt5", "link-alt6", "link-alt7", "link-alt8", "link-alt9"];
+function baseLinkClass(link) {
+  try {
+    if (gantt.isTaskExists(link.source)) {
+      const src = gantt.getTask(link.source);
+      return "link-" + (src.statusCls || "open");
+    }
+  } catch (e) { /* sin tarea origen: color por defecto */ }
+  return "link-open";
+}
+function computeLinkColors() {
+  linkColorById = {};
+  const byTarget = {};
+  gantt.getLinks().forEach(l => {
+    const t = String(l.target);
+    (byTarget[t] = byTarget[t] || []).push(l);
+  });
+  Object.keys(byTarget).forEach(t => {
+    const incoming = byTarget[t];
+    const used = new Set();
+    let altIdx = 0;
+    incoming.forEach(l => {
+      const base = baseLinkClass(l);
+      if (!used.has(base)) { linkColorById[l.id] = base; used.add(base); return; }
+      let alt = null;
+      for (let k = 0; k < LINK_ALT_CLASSES.length; k++) {
+        const cand = LINK_ALT_CLASSES[(altIdx + k) % LINK_ALT_CLASSES.length];
+        if (!used.has(cand)) { alt = cand; break; }
+      }
+      if (!alt) alt = LINK_ALT_CLASSES[altIdx % LINK_ALT_CLASSES.length];
+      altIdx++;
+      linkColorById[l.id] = alt;
+      used.add(alt);
+    });
+  });
+  linkColorsDirty = false;
+}
+function ensureLinkColors() {
+  if (linkColorsDirty) computeLinkColors();
 }
 
 // Construcción de tareas y enlaces para DHTMLX.
@@ -726,15 +785,12 @@ function initGantt() {
     return c;
   };
   // Flechas de dependencia: color según el estado de la tarea origen
-  // (azul abierta, verde cerrada, roja atrasada); en camino crítico, roja.
+  // (azul abierta, verde cerrada, roja atrasada); si varias flechas llegan
+  // al mismo issue con el mismo color, las repetidas varían para distinguirse.
+  // En camino crítico, la flecha es roja.
   gantt.templates.link_class = function (link) {
-    let cls = "link-open";
-    try {
-      if (gantt.isTaskExists(link.source)) {
-        const src = gantt.getTask(link.source);
-        cls = "link-" + (src.statusCls || "open");
-      }
-    } catch (e) { /* sin tarea origen: color por defecto */ }
+    ensureLinkColors();
+    let cls = linkColorById[link.id] || baseLinkClass(link);
     if (criticalOn && criticalSet.has(String(link.source)) && criticalSet.has(String(link.target))) {
       let binding = true;
       if (link.type === "0" || !link.type) {
@@ -981,6 +1037,7 @@ async function load() {
     suppressLinkEvents = true;
     gantt.clearAll();
     gantt.parse({ data: built.tasks, links: built.links });
+    linkColorsDirty = true;
 gantt.attachEvent("onGanttRender", fitGanttHeight);
 window.addEventListener("resize", fitGanttHeight);
 fitGanttHeight();
@@ -1186,6 +1243,7 @@ async function handleLinkAdd(link) {
   if (criticalOn) computeCriticalPath();
   updateMeta();
   setStatus("Enlace guardado: #" + target.id + " depende de #" + link.source + "." + note);
+  linkColorsDirty = true;
 }
 async function handleLinkDelete(link) {
   const target = gantt.getTask(link.target);
@@ -1211,6 +1269,7 @@ async function handleLinkDelete(link) {
   if (criticalOn) computeCriticalPath();
   updateMeta();
   setStatus("Enlace quitado: #" + target.id + " ya no depende de #" + link.source + "." + note);
+  linkColorsDirty = true;
   if (focusSet) clearLinkFocus();
 }
 
@@ -1381,6 +1440,7 @@ async function applyHistoryEntry(entry, toBefore) {
       const url = "https://api.github.com/repos/" + REPO + "/issues/" + link.target + "/dependencies/blocked_by" + (doAdd ? "" : "/" + srcTask.rest_id);
       await fetch(url, { method: doAdd ? "POST" : "DELETE", headers: authHeaders(), body: doAdd ? JSON.stringify({ issue_id: srcTask.rest_id }) : undefined });
     }
+    linkColorsDirty = true;
     return true;
   }
   return false;
