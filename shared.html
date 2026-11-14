@@ -58,7 +58,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 12 de noviembre de 2026, 11:07. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 16:55. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -384,8 +384,10 @@ function pieColorFor(key, i, mode) {
     if (key === "Atrasada") return "#d1242f";
     return "#1f6feb";
   }
-  var palette = ["#1f6feb", "#2da44e", "#d1242f", "#9b59b6", "#e67e22", "#0ea5a5", "#8a94a6", "#d4a017"];
-  return palette[i % palette.length];
+  // Un color distinto por grupo, sin importar cuántos haya: el tono avanza
+  // en ángulo dorado (137.5°) desde el azul, así que ningún par se repite.
+  var hue = (210 + i * 137.508) % 360;
+  return "hsl(" + hue.toFixed(1) + ", 62%, 42%)";
 }
 var PM_KEYS = ["kickoff", "questionnaire", "investigat", "sprint", "planning", "workload", "backlog", "risk", "wbs", "raci", "scope", "requirements", "acceptance", "traceability", "checkpoint", "milestone", "demonstration", "feedback", "change control", "test-evidence", "transfer", "client handoff"];
 function isPMTask(t) {
