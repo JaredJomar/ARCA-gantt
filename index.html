@@ -1963,6 +1963,9 @@ function preparePrint() {
   var root = document.getElementById("gantt_here");
   if (!root) return;
   __printing = true;
+  // Volver arriba: si la página está desplazada, la impresión puede
+  // empezar desde esa posición y dejar la primera página en blanco.
+  if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
   __printPrevMode = (typeof currentScaleMode !== "undefined") ? currentScaleMode : "Week";
   __printPrevCols = gantt.config.columns;
   __printPrevGridW = gantt.config.grid_width;
