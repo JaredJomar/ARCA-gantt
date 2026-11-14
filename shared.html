@@ -56,6 +56,7 @@
 @media print {
   @page { size: landscape; margin: 10mm; }
   html, body { margin: 0 !important; padding: 0 !important; }
+  #ganttTab { margin: 0 !important; padding: 0 !important; }
   header, .panel, #status, #workload, #controls, .tabbar, .pie-wrap, .pie-controls, .legend, #meta, #shareMsg, #routerStatus, #autoRefreshMsg { display: none !important; }
   body { background: #fff !important; }
   #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; break-before: auto !important; break-inside: auto !important; }
@@ -69,7 +70,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 19:46. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 19:50. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -423,6 +424,9 @@ function preparePrint() {
   gantt.setSizes();
   gantt.render();
   if (typeof routeLinks === "function") routeLinks();
+  // Forzar un reflow síncrono para que el navegador aplique todos los
+  // cambios antes de componer la página (evita una primera página en blanco).
+  void root.offsetHeight;
 }
 function restoreAfterPrint() {
   if (!__printing) return;
