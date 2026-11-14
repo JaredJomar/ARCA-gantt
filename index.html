@@ -1669,9 +1669,11 @@ function pieColorFor(key, i, mode) {
     if (key === "Atrasada") return "#d1242f";
     return "#1f6feb";
   }
-  // Un color distinto por grupo, sin importar cuántos haya: el tono avanza
-  // en ángulo dorado (137.5°) desde el azul, así que ningún par se repite.
-  var hue = (210 + i * 137.508) % 360;
+  // Paleta de 12 colores distintos, con cian; si hay más de 12 grupos,
+  // los siguientes usan tonos en ángulo dorado para no repetirse nunca.
+  var palette = ["#1f6feb", "#00bcd4", "#2da44e", "#84cc16", "#d4a017", "#e67e22", "#d1242f", "#e84393", "#9b59b6", "#6c5ce7", "#795548", "#8a94a6"];
+  if (i < palette.length) return palette[i];
+  var hue = (i * 137.508) % 360;
   return "hsl(" + hue.toFixed(1) + ", 62%, 42%)";
 }
 var PM_KEYS = ["kickoff", "questionnaire", "investigat", "sprint", "planning", "workload", "backlog", "risk", "wbs", "raci", "scope", "requirements", "acceptance", "traceability", "checkpoint", "milestone", "demonstration", "feedback", "change control", "test-evidence", "transfer", "client handoff"];
@@ -2257,9 +2259,11 @@ function pieColorFor(key, i, mode) {
     if (key === "Atrasada") return "#d1242f";
     return "#1f6feb";
   }
-  // Un color distinto por grupo, sin importar cuántos haya: el tono avanza
-  // en ángulo dorado (137.5°) desde el azul, así que ningún par se repite.
-  var hue = (210 + i * 137.508) % 360;
+  // Paleta de 12 colores distintos, con cian; si hay más de 12 grupos,
+  // los siguientes usan tonos en ángulo dorado para no repetirse nunca.
+  var palette = ["#1f6feb", "#00bcd4", "#2da44e", "#84cc16", "#d4a017", "#e67e22", "#d1242f", "#e84393", "#9b59b6", "#6c5ce7", "#795548", "#8a94a6"];
+  if (i < palette.length) return palette[i];
+  var hue = (i * 137.508) % 360;
   return "hsl(" + hue.toFixed(1) + ", 62%, 42%)";
 }
 var PM_KEYS = ["kickoff", "questionnaire", "investigat", "sprint", "planning", "workload", "backlog", "risk", "wbs", "raci", "scope", "requirements", "acceptance", "traceability", "checkpoint", "milestone", "demonstration", "feedback", "change control", "test-evidence", "transfer", "client handoff"];
