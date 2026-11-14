@@ -53,12 +53,22 @@
   .tabbar, .pie-controls, .pie-wrap { padding-left: 14px; padding-right: 14px; }
   .pie-wrap { flex-direction: column; gap: 12px; }
 }
+@media print {
+  @page { size: landscape; margin: 10mm; }
+  header, .panel, #status, #workload, #controls, .tabbar, .pie-wrap, .pie-controls, .legend, #meta, #shareMsg, #routerStatus, #autoRefreshMsg { display: none !important; }
+  body { background: #fff !important; }
+  #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; }
+  #gantt_here, #gantt_here * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* Mostrar todo el contenido: quitar el scroll interno del Gantt */
+  #gantt_here .gantt_layout, #gantt_here .gantt_layout_cell, #gantt_here .gantt_grid_data, #gantt_here .gantt_task_bg, #gantt_here .gantt_data_area, #gantt_here .gantt_task_data, #gantt_here .gantt_grid_data_inner, #gantt_here .gantt_task_scale, #gantt_here .gantt_grid_scale { overflow: visible !important; height: auto !important; max-height: none !important; }
+  #gantt_here .gantt_ver_scroll, #gantt_here .gantt_hor_scroll, #gantt_here .gantt_scroll { display: none !important; }
+}
 </style>
 </head>
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 19:18. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 23:31. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -334,6 +344,7 @@ function updateMeta() {
   document.getElementById("meta").textContent = msg;
 }
 function fitGanttHeight() {
+  if (typeof __printing !== "undefined" && __printing) return; // no reajustar mientras se imprime
   var root = document.getElementById("gantt_here");
   if (!root || typeof gantt === "undefined") return;
   var visible = 0;
@@ -364,6 +375,42 @@ function fitGanttHeight() {
   }
   if (heightChanged) gantt.render();
 }
+
+// Impresión: antes de imprimir, expandir el Gantt a su altura completa
+// (todas las tareas) y re-renderizar, para que el PDF incluya todo el
+// gráfico con sus barras y flechas, no solo la parte visible en pantalla.
+// DHTMLX solo dibuja los enlaces del viewport, así que hay que expandir
+// y re-renderizar antes de que el navegador componga la página.
+var __printing = false;
+var __printPrevH = null;
+function preparePrint() {
+  if (typeof gantt === "undefined") return;
+  var root = document.getElementById("gantt_here");
+  if (!root) return;
+  __printing = true;
+  var visible = 0;
+  gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
+  var scaleEl = root.querySelector(".gantt_grid_scale");
+  var scaleH = scaleEl ? scaleEl.offsetHeight : 36;
+  var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
+  __printPrevH = root.style.height;
+  root.style.height = needed + "px";
+  gantt.setSizes();
+  gantt.render();
+  if (typeof routeLinks === "function") routeLinks();
+}
+function restoreAfterPrint() {
+  if (!__printing) return;
+  __printing = false;
+  var root = document.getElementById("gantt_here");
+  if (root && __printPrevH !== null) root.style.height = __printPrevH;
+  __printPrevH = null;
+  if (typeof gantt !== "undefined") { gantt.setSizes(); gantt.render(); }
+  if (typeof fitGanttHeight === "function") fitGanttHeight();
+}
+window.addEventListener("beforeprint", preparePrint);
+window.addEventListener("afterprint", restoreAfterPrint);
+
 // Router de flechas: separa las líneas de dependencia que se solapan.
 // DHTMLX dibuja cada flecha como segmentos ortogonales. Cuando varias flechas
 // comparten la misma x (verticales) o la misma y (horizontales), se dibujan
