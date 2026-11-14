@@ -637,6 +637,190 @@ function ensureLinkColors() {
   if (linkColorsDirty) computeLinkColors();
 }
 
+// Router de flechas: separa las líneas de dependencia que se solapan.
+// DHTMLX dibuja cada flecha como segmentos ortogonales. Cuando varias flechas
+// comparten la misma x (verticales) o la misma y (horizontales), se dibujan
+// una encima de la otra y solo se ve una, por muchos colores que tengan.
+// Esta función corre después de cada render, lee la geometría real del DOM y
+// separa los segmentos que coinciden: desplaza las verticales largas en x
+// (dx) y las horizontales finales en y (dy), reconectando las esquinas y la
+// flecha, sin soltar los extremos (el inicio sigue en la barra origen y la
+// flecha en la barra destino). No toca los segmentos cortos del origen
+// (stub vertical de ~14px y primer horizontal de ~12px): si dos salen de la
+// misma tarea, pueden coincidir en esos 12-14px junto a la barra.
+var linkRouterRunning = false;
+function routeLinks() {
+  if (typeof ganttReady !== "undefined" && !ganttReady) return;
+  if (linkRouterRunning) return;
+  try { if (gantt.getState().drag_mode) return; } catch (e) { return; }
+  linkRouterRunning = true;
+  try {
+    var cfg = gantt.config;
+    var wrapW = cfg.link_wrapper_width || 20;
+    var lineW = cfg.link_line_width || 2;
+    var inset = (wrapW - lineW) / 2;
+    var STEP = 3; // separación entre líneas vecinas (línea 2px + 1px de hueco)
+    var linkEls = document.querySelectorAll("#gantt_here .gantt_task_link");
+    if (!linkEls.length) return;
+    // Parsear cada enlace: sus segmentos están en orden de trazado
+    // (hijos en el orden source -> target).
+    var links = [];
+    linkEls.forEach(function (linkEl) {
+      var kids = linkEl.children;
+      var segs = [];
+      var corners = [];
+      var arrow = null;
+      for (var i = 0; i < kids.length; i++) {
+        var k = kids[i];
+        if (k.classList.contains("gantt_line_wrapper")) {
+          var lineEl = k.firstElementChild;
+          var dir = "";
+          if (lineEl) {
+            var mm = /gantt_link_line_(left|right|up|down)/.exec(lineEl.className);
+            if (mm) dir = mm[1];
+          }
+          if (!dir) continue;
+          var top = parseFloat(k.style.top) || 0;
+          var left = parseFloat(k.style.left) || 0;
+          var w = parseFloat(k.style.width) || 0;
+          var h = parseFloat(k.style.height) || 0;
+          var s;
+          if (dir === "left" || dir === "right") {
+            var y = top + h / 2;
+            s = { el: k, dir: dir, kind: "H", x0: left + inset, x1: left + w - inset, y0: y, y1: y, wTop: top, wLeft: left, wWidth: w, wHeight: h, childIdx: i };
+          } else {
+            var x = left + w / 2;
+            s = { el: k, dir: dir, kind: "V", x0: x, x1: x, y0: top + inset, y1: top + h - inset, wTop: top, wLeft: left, wWidth: w, wHeight: h, childIdx: i };
+          }
+          segs.push(s);
+        } else if (k.classList.contains("gantt_link_corner")) {
+          corners.push({ el: k, left: parseFloat(k.style.left) || 0, top: parseFloat(k.style.top) || 0, childIdx: i });
+        } else if (k.classList.contains("gantt_link_arrow")) {
+          arrow = { el: k, left: parseFloat(k.style.left) || 0, top: parseFloat(k.style.top) || 0, childIdx: i };
+        }
+      }
+      if (!segs.length) return;
+      var mainV = null, finalH = null;
+      segs.forEach(function (sg) {
+        if (sg.kind === "V" && (!mainV || (sg.y1 - sg.y0) > (mainV.y1 - mainV.y0))) mainV = sg;
+        if (sg.kind === "H") finalH = sg;
+      });
+      if (!mainV || !finalH) return;
+      var topH = null;
+      for (var j = segs.indexOf(mainV) - 1; j >= 0; j--) { if (segs[j].kind === "H") { topH = segs[j]; break; } }
+      links.push({ el: linkEl, segs: segs, corners: corners, arrow: arrow, mainV: mainV, finalH: finalH, topH: topH, dx: null, dy: null });
+    });
+    if (!links.length) return;
+    // Asignación voraz sobre posiciones desplazadas: al elegir dx para una
+    // vertical, se evita que su x final coincida con la x final (ya asignada)
+    // o la x original (aún sin asignar) de cualquier otra vertical cuyo
+    // rango y se cruce con ella. Igual para dy en las horizontales finales.
+    // El rango y lleva un margen de 24px porque la vertical se alarga o
+    // acorta según el dy de su horizontal final.
+    var YPAD = 24;
+    function shiftX(L) { return L.mainV.x0 + (L.dx === null ? 0 : L.dx); }
+    function shiftY(L) { return L.finalH.y0 + (L.dy === null ? 0 : L.dy); }
+    function blockedDX(L, cand) {
+      var nx = L.mainV.x0 + cand;
+      for (var i = 0; i < links.length; i++) {
+        var O = links[i];
+        if (O === L) continue;
+        if (Math.abs(shiftX(O) - nx) < 1 && (L.mainV.y0 - YPAD) < O.mainV.y1 && O.mainV.y0 < (L.mainV.y1 + YPAD)) return true;
+      }
+      return false;
+    }
+    function blockedDY(L, cand) {
+      var ny = L.finalH.y0 + cand;
+      for (var i = 0; i < links.length; i++) {
+        var O = links[i];
+        if (O === L) continue;
+        if (Math.abs(shiftY(O) - ny) < 1 && L.finalH.x0 < O.finalH.x1 && O.finalH.x0 < L.finalH.x1) return true;
+      }
+      return false;
+    }
+    function pickDX(L) {
+      if (!blockedDX(L, 0)) return 0;
+      for (var k = 1; k <= 60; k++) {
+        if (!blockedDX(L, k * STEP)) return k * STEP;
+        if (!blockedDX(L, -k * STEP)) return -k * STEP;
+      }
+      return 0;
+    }
+    function pickDY(L) {
+      if (!blockedDY(L, 0)) return 0;
+      for (var k = 1; k <= 60; k++) {
+        if (!blockedDY(L, k * STEP)) return k * STEP;
+        if (!blockedDY(L, -k * STEP)) return -k * STEP;
+      }
+      return 0;
+    }
+    var byV = links.slice().sort(function (a, b) { return (a.mainV.x0 - b.mainV.x0) || (a.mainV.y0 - b.mainV.y0); });
+    byV.forEach(function (L) { L.dx = pickDX(L); });
+    var byH = links.slice().sort(function (a, b) { return (a.finalH.y0 - b.finalH.y0) || (a.finalH.x0 - b.finalH.x0); });
+    byH.forEach(function (L) { L.dy = pickDY(L); });
+    // Aplicar los desplazamientos reconectando cada junta.
+    links.forEach(function (L) {
+      var dx = L.dx || 0, dy = L.dy || 0;
+      if (!dx && !dy) return;
+      var mv = L.mainV, fh = L.finalH, th = L.topH;
+      var vx = mv.x0;
+      if (dx) {
+        mv.el.style.left = (mv.wLeft + dx) + "px";
+        // Horizontal superior: su extremo en la vertical se mueve con ella.
+        if (th) {
+          var dRight = Math.abs(th.x1 - vx), dLeft = Math.abs(th.x0 - vx);
+          if (dRight <= 8 && dRight <= dLeft) {
+            th.el.style.width = Math.max(2, th.wWidth + dx) + "px";
+          } else if (dLeft <= 8) {
+            th.el.style.left = (th.wLeft + dx) + "px";
+            th.el.style.width = Math.max(2, th.wWidth - dx) + "px";
+          }
+        }
+        // Horizontal final: empieza en la vertical (su extremo izquierdo).
+        if (fh) {
+          var fRight = Math.abs(fh.x1 - vx), fLeft = Math.abs(fh.x0 - vx);
+          if (fLeft <= 8 && fLeft <= fRight) {
+            fh.el.style.left = (fh.wLeft + dx) + "px";
+            fh.el.style.width = Math.max(2, fh.wWidth - dx) + "px";
+          } else if (fRight <= 8) {
+            fh.el.style.width = Math.max(2, fh.wWidth + dx) + "px";
+          }
+        }
+      }
+      if (dy) {
+        // La horizontal final y su flecha bajan/suben dy; la vertical se
+        // alarga o acorta para seguir llegando hasta ella.
+        fh.el.style.top = (fh.wTop + dy) + "px";
+        if (L.arrow) L.arrow.el.style.top = (L.arrow.top + dy) + "px";
+        if (mv.dir === "down") {
+          mv.el.style.height = Math.max(2, mv.wHeight + dy) + "px";
+        } else {
+          mv.el.style.top = (mv.wTop + dy) + "px";
+          mv.el.style.height = Math.max(2, mv.wHeight - dy) + "px";
+        }
+      }
+      // Esquinas: las que están entre la horizontal superior y la vertical
+      // se mueven en x; las que están entre la vertical y la horizontal
+      // final se mueven en x y en y. Las del stub no se tocan.
+      L.corners.forEach(function (c) {
+        var afterTopH = !th || c.childIdx > th.childIdx;
+        var beforeMainV = c.childIdx < mv.childIdx;
+        var afterMainV = c.childIdx > mv.childIdx;
+        var beforeFinalH = c.childIdx < fh.childIdx;
+        var moveX = false, moveY = false;
+        if (afterTopH && beforeMainV) moveX = true;
+        if (afterMainV && beforeFinalH) { moveX = true; moveY = true; }
+        if (moveX && dx) c.el.style.left = (c.left + dx) + "px";
+        if (moveY && dy) c.el.style.top = (c.top + dy) + "px";
+      });
+    });
+  } catch (err) {
+    if (window.console) console.warn("routeLinks:", err);
+  } finally {
+    linkRouterRunning = false;
+  }
+}
+
 // Construcción de tareas y enlaces para DHTMLX.
 // Fechas del issue son inclusivas; DHTMLX usa fin exclusivo, así que end_date = fin inclusivo + 1 día.
 // Los hitos (inicio igual a fin) usan type milestone con inicio igual a fin.
@@ -1039,6 +1223,7 @@ async function load() {
     gantt.parse({ data: built.tasks, links: built.links });
     linkColorsDirty = true;
 gantt.attachEvent("onGanttRender", fitGanttHeight);
+gantt.attachEvent("onGanttRender", routeLinks);
 window.addEventListener("resize", fitGanttHeight);
 fitGanttHeight();
     if (restoreFilters()) applyFilters();
