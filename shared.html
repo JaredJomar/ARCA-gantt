@@ -58,7 +58,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 18:07. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 18:17. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -715,11 +715,12 @@ function applyFilters() {
 setScale("Week");
 gantt.init("gantt_here");
 enableColumnResize();
-gantt.parse({ data: DATA.tasks, links: DATA.links });
 gantt.attachEvent("onGanttRender", fitGanttHeight);
 gantt.attachEvent("onGanttRender", routeLinks);
 window.addEventListener("resize", fitGanttHeight);
+gantt.parse({ data: DATA.tasks, links: DATA.links });
 fitGanttHeight();
+routeLinks();
 (function () {
   var today = new Date(); today.setHours(0, 0, 0, 0);
   var monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
