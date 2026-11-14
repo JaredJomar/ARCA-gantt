@@ -88,7 +88,7 @@
     html, body { margin: 0 !important; padding: 0 !important; }
     header, .panel, #status, #workload, #controls, .tabbar, .pie-wrap, .pie-controls, .legend, #meta, #shareMsg, #routerStatus, #autoRefreshMsg, #linkHelp { display: none !important; }
     body { background: #fff !important; }
-    #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; page-break-before: avoid !important; break-before: avoid !important; }
+    #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; break-before: auto !important; break-inside: auto !important; }
     #gantt_here, #gantt_here * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     /* Mostrar todo el contenido: quitar el scroll interno del Gantt */
     #gantt_here .gantt_layout, #gantt_here .gantt_layout_cell, #gantt_here .gantt_grid_data, #gantt_here .gantt_task_bg, #gantt_here .gantt_data_area, #gantt_here .gantt_task_data, #gantt_here .gantt_grid_data_inner, #gantt_here .gantt_task_scale, #gantt_here .gantt_grid_scale { overflow: visible !important; height: auto !important; max-height: none !important; }
@@ -1972,11 +1972,11 @@ function preparePrint() {
     { name: "wbs", label: "WBS", width: 50, template: function (t) { return t.wbs || ""; } },
     { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title=\"" + escAttr(t.text) + "\">" + esc(t.text) + "</span>"; } },
     { name: "assignee", label: "Asignado", width: 95, template: function (t) { return t.assignee; } },
-    { name: "start", label: "Inicio", width: 90, template: function (t) { return fmtDate(t.start_date); } },
-    { name: "end", label: "Fin", width: 90, template: function (t) { return fmtDate(t.inclusiveEnd); } }
+    { name: "start", label: "Inicio", width: 100, template: function (t) { return fmtDate(t.start_date); } },
+    { name: "end", label: "Fin", width: 100, template: function (t) { return fmtDate(t.inclusiveEnd); } }
   ];
-  gantt.config.grid_width = 500;
-  gantt.config.min_column_width = 35;
+  gantt.config.grid_width = 520;
+  gantt.config.min_column_width = 33;
   __printPrevW = root.style.width;
   root.style.width = "960px";
   var visible = 0;
