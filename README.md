@@ -132,8 +132,9 @@ dependencias, el visor avisa y no calcula la ruta.
 - En móviles (hasta 700 px de ancho) la tabla muestra solo la
   columna de tarea y la línea de tiempo se desplaza; pestaña
   Gráfica con gráfica circular solo de tareas técnicas, por
-  persona o por estado, según el filtro actual. Las tareas de
-  PM quedan fuera de la gráfica: se detectan por palabras
+  persona o por estado, según el filtro actual. Cada grupo
+  tiene su propio color, sin importar cuántos grupos haya.
+  Las tareas de PM quedan fuera de la gráfica: se detectan por palabras
   clave en el título (planificación, sprints, checkpoints,
   revisiones, hitos, documentación y demos, entre otras).
 - En pantallas pequeñas el deslizamiento táctil mueve la línea
