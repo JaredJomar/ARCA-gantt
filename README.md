@@ -165,6 +165,25 @@ dependencias, el visor avisa y no calcula la ruta.
 - "Imprimir / PDF" usa la impresión del navegador. Para una
   copia completa y portátil, mejor usar "Exportar HTML".
 
+## Actualización automática y foco en dependencias
+
+- "Actualización automática" (activada por defecto, se guarda
+  en el navegador) revisa GitHub cada minuto y actualiza el
+  Gantt en vivo, sin recargar la página: si un compañero cierra
+  un issue, cambia una fecha o un progreso, la barra se mueve
+  sola y la línea de estado dice qué cambió. No toca el
+  desplazamiento, la selección ni los filtros, y no revisa
+  mientras arrastras una barra, mientras se guarda un cambio o
+  mientras la pestaña está oculta. Tras 3 intentos fallidos
+  seguidos se pausa sola y avisa que revises el token.
+- Clic en una flecha de dependencia filtra el Gantt al issue
+  al que apunta la flecha y a todas sus dependencias (la cadena
+  completa, no solo las directas), para distinguirlas cuando un
+  issue tiene muchas. Para quitar el filtro: clic en la misma
+  flecha, clic en un espacio vacío, pulsa Esc o usa el botón
+  "Quitar filtro" del aviso amarillo. Borrar el enlace también
+  quita el filtro.
+
 ## Botones
 
 - Exportar HTML: descarga una copia autocontenida del Gantt
