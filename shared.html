@@ -69,7 +69,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 23:35. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 19:42. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -386,6 +386,7 @@ function fitGanttHeight() {
 // gráfico (tabla + línea de tiempo) quepa en el ancho de la página.
 var __printing = false;
 var __printPrevH = null;
+var __printPrevW = null;
 var __printPrevMode = null;
 var __printPrevCols = null;
 var __printPrevGridW = null;
@@ -402,14 +403,16 @@ function preparePrint() {
   // Vista Mes (línea de tiempo más angosta) y columnas compactas.
   if (typeof setScale === "function") setScale("Month");
   gantt.config.columns = [
-    { name: "wbs", label: "WBS", width: 40, template: function (t) { return t.wbs || ""; } },
-    { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title="" + escAttr(t.text) + "">" + esc(t.text) + "</span>"; } },
-    { name: "assignee", label: "Asignado", width: 100, template: function (t) { return t.assignee; } },
-    { name: "start", label: "Inicio", width: 85, template: function (t) { return fmtDate(t.start_date); } },
-    { name: "end", label: "Fin", width: 85, template: function (t) { return fmtDate(t.inclusiveEnd); } }
+    { name: "wbs", label: "WBS", width: 50, template: function (t) { return t.wbs || ""; } },
+    { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return '<span title="' + escAttr(t.text) + '">' + esc(t.text) + '</span>'; } },
+    { name: "assignee", label: "Asignado", width: 95, template: function (t) { return t.assignee; } },
+    { name: "start", label: "Inicio", width: 90, template: function (t) { return fmtDate(t.start_date); } },
+    { name: "end", label: "Fin", width: 90, template: function (t) { return fmtDate(t.inclusiveEnd); } }
   ];
-  gantt.config.grid_width = 480;
-  gantt.config.min_column_width = 40;
+  gantt.config.grid_width = 500;
+  gantt.config.min_column_width = 35;
+  __printPrevW = root.style.width;
+  root.style.width = "960px";
   var visible = 0;
   gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
   var scaleEl = root.querySelector(".gantt_grid_scale");
@@ -426,7 +429,8 @@ function restoreAfterPrint() {
   __printing = false;
   var root = document.getElementById("gantt_here");
   if (root && __printPrevH !== null) root.style.height = __printPrevH;
-  __printPrevH = null;
+  if (root && __printPrevW !== null) root.style.width = __printPrevW;
+  __printPrevH = null; __printPrevW = null;
   if (typeof gantt !== "undefined") {
     if (__printPrevCols) gantt.config.columns = __printPrevCols;
     if (__printPrevGridW !== null) gantt.config.grid_width = __printPrevGridW;
