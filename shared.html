@@ -58,7 +58,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 18:46. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 18:50. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -745,6 +745,19 @@ routeLinks();
     if (t) clearTimeout(t);
     t = setTimeout(routeLinks, 150);
   }, true);
+})();
+// Re-enrutar cuando DHTMLX recree los enlaces (scroll, filtros, escala).
+// Solo childList (no attributes): los cambios de estilo de routeLinks
+// no disparan el observador.
+(function () {
+  var holder = document.getElementById("gantt_here");
+  if (!holder || typeof MutationObserver === "undefined") return;
+  var t = null;
+  var obs = new MutationObserver(function () {
+    if (t) clearTimeout(t);
+    t = setTimeout(routeLinks, 100);
+  });
+  obs.observe(holder, { childList: true, subtree: true });
 })();
 (function () {
   var today = new Date(); today.setHours(0, 0, 0, 0);
