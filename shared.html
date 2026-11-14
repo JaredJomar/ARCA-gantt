@@ -55,9 +55,10 @@
 }
 @media print {
   @page { size: landscape; margin: 10mm; }
+  html, body { margin: 0 !important; padding: 0 !important; }
   header, .panel, #status, #workload, #controls, .tabbar, .pie-wrap, .pie-controls, .legend, #meta, #shareMsg, #routerStatus, #autoRefreshMsg { display: none !important; }
   body { background: #fff !important; }
-  #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; }
+  #gantt_here { margin: 0 !important; border: none !important; height: auto !important; max-height: none !important; overflow: visible !important; page-break-before: avoid !important; break-before: avoid !important; }
   #gantt_here, #gantt_here * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   /* Mostrar todo el contenido: quitar el scroll interno del Gantt */
   #gantt_here .gantt_layout, #gantt_here .gantt_layout_cell, #gantt_here .gantt_grid_data, #gantt_here .gantt_task_bg, #gantt_here .gantt_data_area, #gantt_here .gantt_task_data, #gantt_here .gantt_grid_data_inner, #gantt_here .gantt_task_scale, #gantt_here .gantt_grid_scale { overflow: visible !important; height: auto !important; max-height: none !important; }
@@ -68,7 +69,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 23:31. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 23:35. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -381,13 +382,34 @@ function fitGanttHeight() {
 // gráfico con sus barras y flechas, no solo la parte visible en pantalla.
 // DHTMLX solo dibuja los enlaces del viewport, así que hay que expandir
 // y re-renderizar antes de que el navegador componga la página.
+// Además se cambia a vista Mes y a columnas compactas para que todo el
+// gráfico (tabla + línea de tiempo) quepa en el ancho de la página.
 var __printing = false;
 var __printPrevH = null;
+var __printPrevMode = null;
+var __printPrevCols = null;
+var __printPrevGridW = null;
+var __printPrevMinCol = null;
 function preparePrint() {
   if (typeof gantt === "undefined") return;
   var root = document.getElementById("gantt_here");
   if (!root) return;
   __printing = true;
+  __printPrevMode = (typeof currentScaleMode !== "undefined") ? currentScaleMode : "Week";
+  __printPrevCols = gantt.config.columns;
+  __printPrevGridW = gantt.config.grid_width;
+  __printPrevMinCol = gantt.config.min_column_width;
+  // Vista Mes (línea de tiempo más angosta) y columnas compactas.
+  if (typeof setScale === "function") setScale("Month");
+  gantt.config.columns = [
+    { name: "wbs", label: "WBS", width: 40, template: function (t) { return t.wbs || ""; } },
+    { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title="" + escAttr(t.text) + "">" + esc(t.text) + "</span>"; } },
+    { name: "assignee", label: "Asignado", width: 100, template: function (t) { return t.assignee; } },
+    { name: "start", label: "Inicio", width: 85, template: function (t) { return fmtDate(t.start_date); } },
+    { name: "end", label: "Fin", width: 85, template: function (t) { return fmtDate(t.inclusiveEnd); } }
+  ];
+  gantt.config.grid_width = 480;
+  gantt.config.min_column_width = 40;
   var visible = 0;
   gantt.eachTask(function (t) { if (gantt.isTaskVisible(t.id)) visible++; });
   var scaleEl = root.querySelector(".gantt_grid_scale");
@@ -405,7 +427,15 @@ function restoreAfterPrint() {
   var root = document.getElementById("gantt_here");
   if (root && __printPrevH !== null) root.style.height = __printPrevH;
   __printPrevH = null;
-  if (typeof gantt !== "undefined") { gantt.setSizes(); gantt.render(); }
+  if (typeof gantt !== "undefined") {
+    if (__printPrevCols) gantt.config.columns = __printPrevCols;
+    if (__printPrevGridW !== null) gantt.config.grid_width = __printPrevGridW;
+    if (__printPrevMinCol !== null) gantt.config.min_column_width = __printPrevMinCol;
+    if (__printPrevMode && typeof setScale === "function") setScale(__printPrevMode);
+    gantt.setSizes();
+    gantt.render();
+  }
+  __printPrevMode = null; __printPrevCols = null; __printPrevGridW = null; __printPrevMinCol = null;
   if (typeof fitGanttHeight === "function") fitGanttHeight();
 }
 window.addEventListener("beforeprint", preparePrint);
