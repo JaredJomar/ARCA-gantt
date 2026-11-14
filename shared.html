@@ -70,7 +70,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 19:57. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 19:59. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -430,6 +430,11 @@ function preparePrint() {
   var needed = scaleH + visible * gantt.config.row_height + 18 + 2;
   __printPrevH = root.style.height;
   root.style.height = needed + "px";
+  gantt.setSizes();
+  gantt.render();
+  if (typeof routeLinks === "function") routeLinks();
+  // Segundo pase: forzar a DHTMLX a recalcular el layout completo con la
+  // altura expandida, para que el contenido no quede corrido hacia abajo.
   gantt.setSizes();
   gantt.render();
   if (typeof routeLinks === "function") routeLinks();
