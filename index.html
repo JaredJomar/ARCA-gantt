@@ -1966,6 +1966,12 @@ function preparePrint() {
   // Volver arriba: si la página está desplazada, la impresión puede
   // empezar desde esa posición y dejar la primera página en blanco.
   if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
+  // Restablecer el scroll interno del Gantt: si quedó desplazado, al
+  // expandir el contenedor las filas aparecen corridas y la parte de
+  // arriba del gráfico queda en blanco.
+  if (typeof gantt.scrollTo === "function") gantt.scrollTo(0, 0);
+  var __sc = root.querySelectorAll(".gantt_grid_data, .gantt_task_bg, .gantt_data_area");
+  for (var __si = 0; __si < __sc.length; __si++) { __sc[__si].scrollTop = 0; __sc[__si].scrollLeft = 0; }
   __printPrevMode = (typeof currentScaleMode !== "undefined") ? currentScaleMode : "Week";
   __printPrevCols = gantt.config.columns;
   __printPrevGridW = gantt.config.grid_width;
