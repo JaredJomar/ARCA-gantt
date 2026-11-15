@@ -70,7 +70,7 @@
 <body>
 <header>
   <h1>ARCA - Gantt clásico (vista compartida)</h1>
-  <p>Datos actualizados el 14 de noviembre de 2026, 20:04. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
+  <p>Datos actualizados el 14 de noviembre de 2026, 20:57. No requiere token ni acceso al repo. Se actualiza automáticamente.</p>
 </header>
 <div class="panel">
   <strong style="font-size:14px;">Vista:</strong>
@@ -392,6 +392,7 @@ var __printPrevMode = null;
 var __printPrevCols = null;
 var __printPrevGridW = null;
 var __printPrevMinCol = null;
+var __printPrevRight = null;
 function preparePrint() {
   if (typeof gantt === "undefined") return;
   var root = document.getElementById("gantt_here");
@@ -410,17 +411,22 @@ function preparePrint() {
   __printPrevCols = gantt.config.columns;
   __printPrevGridW = gantt.config.grid_width;
   __printPrevMinCol = gantt.config.min_column_width;
+  // Quitar las etiquetas de asignado junto a las barras en la impresión:
+  // se sobreponen entre sí y con las barras. El asignado ya está en la
+  // columna Asignado de la tabla.
+  __printPrevRight = gantt.templates.rightside_text;
+  gantt.templates.rightside_text = function () { return ""; };
   // Vista Mes (línea de tiempo más angosta) y columnas compactas.
   if (typeof setScale === "function") setScale("Month");
   gantt.config.columns = [
-    { name: "wbs", label: "WBS", width: 50, template: function (t) { return t.wbs || ""; } },
+    { name: "wbs", label: "WBS", width: 40, template: function (t) { return t.wbs || ""; } },
     { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return '<span title="' + escAttr(t.text) + '">' + esc(t.text) + '</span>'; } },
-    { name: "assignee", label: "Asignado", width: 95, template: function (t) { return t.assignee; } },
-    { name: "start", label: "Inicio", width: 100, template: function (t) { return fmtDate(t.start_date); } },
-    { name: "end", label: "Fin", width: 100, template: function (t) { return fmtDate(t.inclusiveEnd); } }
+    { name: "assignee", label: "Asignado", width: 80, template: function (t) { return t.assignee; } },
+    { name: "start", label: "Inicio", width: 85, template: function (t) { return fmtDate(t.start_date); } },
+    { name: "end", label: "Fin", width: 85, template: function (t) { return fmtDate(t.inclusiveEnd); } }
   ];
-  gantt.config.grid_width = 520;
-  gantt.config.min_column_width = 33;
+  gantt.config.grid_width = 460;
+  gantt.config.min_column_width = 30;
   __printPrevW = root.style.width;
   root.style.width = "960px";
   var visible = 0;
@@ -459,6 +465,8 @@ function restoreAfterPrint() {
     if (__printPrevCols) gantt.config.columns = __printPrevCols;
     if (__printPrevGridW !== null) gantt.config.grid_width = __printPrevGridW;
     if (__printPrevMinCol !== null) gantt.config.min_column_width = __printPrevMinCol;
+    if (__printPrevRight) gantt.templates.rightside_text = __printPrevRight;
+    __printPrevRight = null;
     if (__printPrevMode && typeof setScale === "function") setScale(__printPrevMode);
     gantt.setSizes();
     gantt.render();
