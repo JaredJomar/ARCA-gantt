@@ -1988,11 +1988,11 @@ function preparePrint() {
     { name: "wbs", label: "WBS", width: 40, template: function (t) { return t.wbs || ""; } },
     { name: "text", label: "Tarea", tree: true, width: "*", template: function (t) { return "<span title=\"" + escAttr(t.text) + "\">" + esc(t.text) + "</span>"; } },
     { name: "assignee", label: "Asignado", width: 80, template: function (t) { return t.assignee; } },
-    { name: "start", label: "Inicio", width: 85, template: function (t) { return fmtDate(t.start_date); } },
-    { name: "end", label: "Fin", width: 85, template: function (t) { return fmtDate(t.inclusiveEnd); } }
+    { name: "start", label: "Inicio", width: 100, template: function (t) { return fmtDate(t.start_date); } },
+    { name: "end", label: "Fin", width: 100, template: function (t) { return fmtDate(t.inclusiveEnd); } }
   ];
-  gantt.config.grid_width = 460;
-  gantt.config.min_column_width = 30;
+  gantt.config.grid_width = 500;
+  gantt.config.min_column_width = 28;
   __printPrevW = root.style.width;
   root.style.width = "960px";
   var visible = 0;
