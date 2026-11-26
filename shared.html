@@ -298,7 +298,10 @@ function taskMatchesFilters(task) {
     if (filterAssignee === "Sin asignar") { if (task.assignees.length) return false; }
     else if (task.assignees.indexOf(filterAssignee) === -1) return false;
   }
-  if (filterStatus !== "all" && task.statusCls !== filterStatus) return false;
+  if (filterStatus !== "all") {
+    if (filterStatus === "open") { if (task.statusCls !== "open" && task.statusCls !== "overdue") return false; }
+    else if (task.statusCls !== filterStatus) return false;
+  }
   if (filterText) {
     var q = filterText.charAt(0) === "#" ? filterText.slice(1) : filterText;
     if (/^\d+$/.test(q)) { if (String(task.id) !== q) return false; }
